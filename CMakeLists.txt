@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(object_detection_recognition)
+project(object_recognition_pkg)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -200,3 +200,39 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+# -------- MY CODE ---------- #
+
+
+# Find PointCLoud Libraries
+find_package(PCL 1.2 REQUIRED)
+
+#find_package(realsense2 REQUIRED)
+
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
+#find_package(HDF5 REQUIRED)
+#find_package(FLANN REQUIRED)
+
+
+#include_directories(SYSTEM
+#  ${HDF5_INCLUDE_DIR}
+#)
+
+
+# main node
+add_executable(main src/main.cpp)
+target_link_libraries(main 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+)
+
+# segmentation node
+add_executable(segmentation src/segmentation.cpp)
+target_link_libraries(segmentation 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+)

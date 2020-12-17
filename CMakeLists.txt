@@ -215,19 +215,32 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 find_package(HDF5 REQUIRED)
-find_package(FLANN REQUIRED)
+# find_package(FLANN REQUIRED)
 
 
 include_directories(SYSTEM
   ${HDF5_INCLUDE_DIR}
 )
 
+include_directories(/Fann/include)
+link_directories(/Fann/lib)
 
 # main node
 add_executable(main src/main.cpp)
 target_link_libraries(main 
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    fann
+)
+
+# main_trainning node
+add_executable(main_trainning src/main_trainning.cpp)
+target_link_libraries(main_trainning 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    fann
 )
 
 # segmentation node
@@ -244,6 +257,6 @@ target_link_libraries(extract_feature
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     ${Boost_LIBRARIES}
-    FLANN::FLANN ${HDF5_LIBRARIES}
-    # fann
+    # FLANN::FLANN ${HDF5_LIBRARIES}
+    
 )

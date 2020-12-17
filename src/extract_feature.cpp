@@ -59,24 +59,25 @@ int main (int argc, char** argv)
   std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
   // Display and retrieve the shape context descriptor vector for the 0th point.
-//   pcl::VFHSignature308 descriptor = vfhFeatures->points[0].;
+//   pcl::VFHSignature308 descriptor = vfhFeatures->points[0];
 //   VFHEstimationType::PointCloudOut::PointType descriptor2 = vfhFeatures->points[0];
 //   std::cout << vfhFeatures->points[0] << std::endl;
 //   std::cout << vfhFeatures->points[0].histogram[30] << std::endl;
 
+    // std::cout << pcl::VFHSignature308.escriptorSize() << std::endl;
 
-    std::vector<float> VFHValue;
-    for(auto it : vfhFeatures->points[0].histogram)
-    {
-        // std::cout << it << std::endl;
-        VFHValue.push_back(it);
-    }
+    // std::vector<float> VFHValue;
+    // for(auto it : vfhFeatures->points[0].histogram)
+    // {
+    //     // std::cout << it << std::endl;
+    //     VFHValue.push_back(it);
+    // }
 
-    for(auto it : VFHValue)
-    {
-        std::cout << it << std::endl;
-        // VFHValue.push_back(it);
-    }
+    // for(auto it : VFHValue)
+    // {
+    //     std::cout << it << std::endl;
+    //     // VFHValue.push_back(it);
+    // }
 
     
 

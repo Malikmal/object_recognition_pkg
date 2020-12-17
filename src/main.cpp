@@ -1,6 +1,10 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+
+#include "fann.h"
+#include "floatfann.h"
+
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
@@ -116,20 +120,19 @@ main (int argc, char** argv)
         pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
         typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
         VFHEstimationType vfhEstimation;
-        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-        pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
-        pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
 
     for(std::size_t i = 0; i < models.size(); ++i )
     {
         //  Compute the normals
         normalEstimation.setInputCloud (cloud);
 
+        pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         normalEstimation.setSearchMethod (tree);
 
 
         normalEstimation.setRadiusSearch (0.03);
 
+        pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
 
         std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
@@ -148,6 +151,7 @@ main (int argc, char** argv)
         //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
 
         // Actually compute the VFH features
+        pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
         vfhEstimation.compute (*vfhFeatures);
 
         std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
@@ -175,7 +179,23 @@ main (int argc, char** argv)
     
     std::cout << "jumlah vfh : " << VFHValues.size();
 
-    
+
+    // ARTIFICIAL NEURAL NETOWRK
+    fann_type *calc_out;
+    fann_type input[308]; //length of VFH Descriptor
+
+    // for(auto it : VFHValues)
+    // {
+
+    //     struct fann *ann = fann_create_from_file("models.net"); // generated from training
+
+    //     // input[0] = 2;
+    //     calc_out = fann_run(ann, input);
+
+    //     printf("input test (%f) -> %f\n", input[0], calc_out[0]);
+
+    //     fann_destroy(ann);
+    // }
 
     return (0);
 }

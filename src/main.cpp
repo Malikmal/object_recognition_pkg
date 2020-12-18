@@ -168,34 +168,46 @@ main (int argc, char** argv)
         // std::vector<float> VFHValues;
         // float vfh[308] = vfhFeatures->points[0].histogram;
 
-        std::vector<float> VFHValue;
-        for(auto it : vfhFeatures->points[0].histogram)
-        {
-            // std::cout << it << std::endl;
-            VFHValue.push_back(it);
-        }
+        std::vector<float> VFHValue(
+            vfhFeatures->points[0].histogram,
+            vfhFeatures->points[0].histogram + 308 
+        );
+            // std::end(vfhFeatures->points[0].histogram) - std::end(vfhFeatures->points[0].histogram)
+        // for(auto it : vfhFeatures->points[0].histogram)
+        // {
+        //     // std::cout << it << std::endl;
+        //     VFHValue.push_back(it);
+        // }
         VFHValues.push_back(VFHValue);
     }
     
-    std::cout << "jumlah vfh : " << VFHValues.size();
+    std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
 
 
     // ARTIFICIAL NEURAL NETOWRK
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
 
-    // for(auto it : VFHValues)
-    // {
+    for(auto it : VFHValues)
+    {
 
-    //     struct fann *ann = fann_create_from_file("models.net"); // generated from training
+        struct fann *ann = fann_create_from_file("listDataSet.net"); // generated from training
 
-    //     // input[0] = 2;
-    //     calc_out = fann_run(ann, input);
+        // for(std::size_t i = 0; i < it.size(); i++)
+        // {
+        //     input[i] = it[i];
+        //     std::cout << input[i];
+        // }
+        // double arr[100];
+        std::copy(it.begin(), it.end(), input);
 
-    //     printf("input test (%f) -> %f\n", input[0], calc_out[0]);
+        // std::cout << std::endl;
+        calc_out = fann_run(ann, input);
 
-    //     fann_destroy(ann);
-    // }
+        printf("input test (%f) -> %f\n", input[0], calc_out[0]);
+
+        fann_destroy(ann);
+    }
 
     return (0);
 }

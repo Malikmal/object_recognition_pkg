@@ -121,10 +121,10 @@ main (int argc, char** argv)
         typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
         VFHEstimationType vfhEstimation;
 
-    for(std::size_t i = 0; i < models.size(); ++i )
+    for(auto it : models )
     {
         //  Compute the normals
-        normalEstimation.setInputCloud (cloud);
+        normalEstimation.setInputCloud (it);
 
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         normalEstimation.setSearchMethod (tree);
@@ -140,7 +140,7 @@ main (int argc, char** argv)
         // Setup the feature computation
 
         // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (cloud);
+        vfhEstimation.setInputCloud (it);
 
         // Provide the point cloud with normals
         vfhEstimation.setInputNormals(cloudWithNormals);
@@ -165,7 +165,7 @@ main (int argc, char** argv)
         // modelsVFH.push_back (vfhFeatures);
 
         // VFHValues.push_back(vfhFeatures->points[0].histogram);
-        // std::vector<float> VFHValues;
+        // std::vector<float> VFHValue;
         // float vfh[308] = vfhFeatures->points[0].histogram;
 
         std::vector<float> VFHValue(
@@ -185,29 +185,33 @@ main (int argc, char** argv)
 
 
     // ARTIFICIAL NEURAL NETOWRK
-    fann_type *calc_out;
-    fann_type input[308]; //length of VFH Descriptor
+
 
     for(auto it : VFHValues)
     {
-
         struct fann *ann = fann_create_from_file("listDataSet.net"); // generated from training
-
-        // for(std::size_t i = 0; i < it.size(); i++)
-        // {
-        //     input[i] = it[i];
-        //     std::cout << input[i];
-        // }
-        // double arr[100];
+        fann_type *calc_out;
+        fann_type input[308]; //length of VFH Descriptor
         std::copy(it.begin(), it.end(), input);
-
+        // for(int  i = 0; i < 308; i++)
+        // {
+        //     // input[i] = it[i];
+        //     std::cout << input[i] << " ";
+        // }
         // std::cout << std::endl;
         calc_out = fann_run(ann, input);
-
-        printf("input test (%f) -> %f\n", input[0], calc_out[0]);
-
+        // fann_type test[5] = {1, 0, 0, 0, 0};
+        // calc_out = fann_test(ann, input, test);
+        // printf("output test (%f) (%f) (%f) (%f) (%f) \n", 
+        //     calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4]);
+        for(int i = 0 ; i < 5 ; i++)
+        {
+            std::cout << calc_out[i]  << " " ;//<< std::endl;
+        }
+        std::cout << std::endl;
         fann_destroy(ann);
     }
+    // std::cout << calc_out[9] << std::endl;
 
     return (0);
 }

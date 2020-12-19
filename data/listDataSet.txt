@@ -1,0 +1,5 @@
+3#dataset_washington/peach/peach_3
+5#dataset_washington/lemon/lemon_1
+7#dataset_washington/water_bottle/water_bottle_1
+9#dataset_washington/soda_can/soda_can_1
+11#dataset_washington/coffee_mug/coffee_mug_1

@@ -183,11 +183,11 @@ int main (int argc, char** argv)
 
     // ARTIFICIAL NEURAL NETOWRK
     const unsigned int num_input = 308;
-    const unsigned int num_output = 1;
-    const unsigned int num_layers = 6;
+    const unsigned int num_output = 5;
+    const unsigned int num_layers = 4;
     const unsigned int num_neurons_hidden = 308; 
     const float desired_error = (const float) 0.0001; // break ketika error sudah lebih kecil dari ini
-    const unsigned int max_epochs = 1000;//50000; //epoch iterasi
+    const unsigned int max_epochs = 100;//50000; //epoch iterasi
     const unsigned int epochs_between_reports = 1; //jeda printing 
 
     struct fann *ann = fann_create_standard(
@@ -195,21 +195,32 @@ int main (int argc, char** argv)
         num_input,
         num_neurons_hidden, 
         (int) num_neurons_hidden/2,
-        (int) num_neurons_hidden/8,
-        (int) num_neurons_hidden/32, 
         num_output
     );
 
     // fann_set_activation_function_hidden(ann, FANN_LINEAR); // set act func all hidden layer
-    fann_set_activation_function_layer(ann, FANN_SIGMOID_SYMMETRIC, 1); //hidden layer ke 1
-    fann_set_activation_function_layer(ann, FANN_SIGMOID_SYMMETRIC, 2); //hidden layer ke 2
-    fann_set_activation_function_layer(ann, FANN_LINEAR, 3); //hidden layer ke 3 
-    fann_set_activation_function_layer(ann, FANN_LINEAR, 4); //hidden layer ke 4 
-    fann_set_activation_function_output(ann, FANN_LINEAR);
+    fann_set_activation_function_layer(ann, FANN_LINEAR_PIECE, 1); //hidden layer ke 1 
+    fann_set_activation_function_layer(ann, FANN_LINEAR_PIECE, 2); //hidden layer ke 2 
+    // fann_set_activation_function_layer(ann, FANN_LINEAR_PIECE, 3); //hidden layer ke 3
+    // fann_set_activation_function_layer(ann, FANN_SIGMOID, 4); //hidden layer ke 4
+    // fann_set_activation_function_layer(ann, FANN_SIGMOID, 5); //hidden layer ke 5
+    fann_set_activation_function_output(ann, FANN_SIGMOID);
+
+    // fann_set_train_error_function(ann, FANN_ERRORFUNC_LINEAR);
+    // fann_set_train_stop_function(ann, FANN_STOPFUNC_MSE);
+
+    // fann_set_training_algorithm(ann, FANN_TRAIN_BATCH);
+
+    // fann_set_learning_rate(ann, 15);
+    // fann_reset_MSE(ann);
+    // // fann_type a = 0.01;
+    // // fann_scale_input(ann, &a);
+
+    // fann_randomize_weights(ann, 0.0, 1.0);
+    
 
     fann_train_on_file(ann, "listDataSet.data", max_epochs,
         epochs_between_reports, desired_error);
-    
     /***still cant work**/
     // fann_type input[1], *desired_output;
     // input[0] = 5;

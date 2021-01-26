@@ -11,6 +11,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/features/vfh.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
@@ -86,13 +87,35 @@ main (int argc, char** argv)
     std::cout << "PointCloud before filtering has: " << cloud->size () << " data points." << std::endl; //*
 
 
-    // Create the filtering object: downsample the dataset using a leaf size of 1cm
+    // Filter Removing NaN data Pointcloud.
+    std::vector<int> mapping;
+    pcl::removeNaNFromPointCloud(*cloud, *cloud, mapping);
+    std::cerr << "Pointcloud after remove NaN : " << cloud->size() << " data points." << std::endl;
+
+    // Filter object crop by z coordinate
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_passthrough(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PassThrough<pcl::PointXYZ> pass;
+    pass.setInputCloud (cloud);
+    pass.setFilterFieldName ("z");
+    pass.setFilterLimits (0.0, 2.0);
+    //pass.setFilterLimitsNegative (true);
+    pass.filter (*cloud_passthrough);
+    std::cerr << "Pointcloud after cropped : " << cloud_passthrough->size() << " data points." << std::endl;
+    //save passthrough filter
+    pcl::io::savePCDFile("src/object_recognition_pkg/output/filter/cropping.pcd", *cloud_passthrough);
+
+
+    // Filter downsample the dataset using a leaf size of 1cm
     pcl::VoxelGrid<pcl::PointXYZ> vg;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>);
-    vg.setInputCloud (cloud);
-    vg.setLeafSize (0.01f, 0.01f, 0.01f);
+    vg.setInputCloud (cloud_passthrough);
+    vg.setLeafSize (0.01f, 0.01f, 0.01f); // 1cm
     vg.filter (*cloud_filtered);
     std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
+    //save the result of downsample voxel grid
+    pcl::io::savePCDFile("src/object_recognition_pkg/output/filter/voxel_grid.pcd", *cloud_filtered);
+    
+
 
     // Create the segmentation object for the planar model and set all the parameters
     pcl::SACSegmentation<pcl::PointXYZ> seg;
@@ -132,6 +155,19 @@ main (int argc, char** argv)
         extract.setNegative (true);
         extract.filter (*cloud_f);
         *cloud_filtered = *cloud_f;
+
+
+        //save planar [optional]
+        std::stringstream ssPlanar;
+        ssPlanar << "src/object_recognition_pkg/output/segmentation/planar" << i <<".pcd";
+        writer.write<pcl::PointXYZ> (ssPlanar.str (), *cloud_plane, false); //*
+
+        //save planar removed[optional]
+        std::stringstream ssPlanarRemoved;
+        ssPlanarRemoved << "src/object_recognition_pkg/output/segmentation/planar_removed" << i <<".pcd";
+        writer.write<pcl::PointXYZ> (ssPlanarRemoved.str (), *cloud_f, false); //*
+
+        i++;
     }
 
     // Creating the KdTree object for the search method of the extraction
@@ -148,7 +184,7 @@ main (int argc, char** argv)
     ec.extract (cluster_indices);
 
     //// get the cluster models
-      int j = 0;
+    i = 0;
     std::vector<modelsDetail> dataClustered;
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
     {
@@ -163,77 +199,71 @@ main (int argc, char** argv)
 
         modelsDetail modelClustered;
         modelClustered.second = cloud_cluster;
-        modelClustered.first.no = j++; 
+        modelClustered.first.no = i; 
         dataClustered.push_back (modelClustered);
-        // std::stringstream ss;
-        // ss << "src/object_recognition_pkg/output/cloud_cluster_" << j << ".pcd";
-        // writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
-        // j++;
+
+        //save file of clustered object
+        std::stringstream ss;
+        ss << "src/object_recognition_pkg/output/cluster/cloud_cluster_" << i << ".pcd";
+        writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
+        i++;
     }
 
 
-    //// VFH DESCRIPTOR
-    // std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> modelsVFH;
-    // std::vector<std::vector<float> > VFHValues;
-    
+    //// VFH DESCRIPTOR  
     std::vector<modelsDetail> dataAddVFH;
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
     typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
     VFHEstimationType vfhEstimation;
-
+    i = 0;
     for(auto it : dataClustered )
     {
         //  Compute the normals
-        normalEstimation.setInputCloud (it.second);
-
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
+        normalEstimation.setInputCloud (it.second);
         normalEstimation.setSearchMethod (tree);
-
-
         normalEstimation.setRadiusSearch (0.03);
-
         pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
-
-        std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
+        // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
         
         // Setup the feature computation
-
         // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (it.second);
-
-        // Provide the point cloud with normals
-        vfhEstimation.setInputNormals(cloudWithNormals);
-
-        // Use the same KdTree from the normal estimation
+        vfhEstimation.setInputCloud (it.second);    // Provide the point cloud with normals
+        vfhEstimation.setInputNormals(cloudWithNormals);    // Use the same KdTree from the normal estimation
         vfhEstimation.setSearchMethod (tree);
-
-        //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
-
+        // vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
         // Actually compute the VFH features
         pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
         vfhEstimation.compute (*vfhFeatures);
-
-        std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
+        // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
         // Display and retrieve the shape context descriptor vector for the 0th point.
         // pcl::VFHSignature308 descriptor = vfhFeatures->points[0];
         // VFHEstimationType::PointCloudOut::PointType descriptor2 = vfhFeatures->points[0];
         // std::cout << descriptor << std::endl;
 
+        // save histogram VFH of clustered object
+        std::stringstream ss;
+        ss << "src/object_recognition_pkg/output/vfh/vfh_" << i << ".pcd";
+        writer.write<pcl::VFHSignature308> (ss.str (), *vfhFeatures, false); //*
+        i++;
+
         //push to vector 
-        // modelsVFH.push_back (vfhFeatures);
-
-        // VFHValues.push_back(vfhFeatures->points[0].histogram);
-        // std::vector<float> VFHValue;
-        // float vfh[308] = vfhFeatures->points[0].histogram;
-
         std::vector<float> VFHValue(
             vfhFeatures->points[0].histogram,
             vfhFeatures->points[0].histogram + 308 
         );
 
         it.first.histogram = VFHValue;
+        dataAddVFH.push_back(it);
+
+        /** backup code before
+        // modelsVFH.push_back (vfhFeatures);
+
+        // VFHValues.push_back(vfhFeatures->points[0].histogram);
+        // std::vector<float> VFHValue;
+        // float vfh[308] = vfhFeatures->points[0].histogram;
         // std::cout << "size historgam : " << it.first.histogram.size() << std::endl;
 
         // for(auto it2 : it.first.histogram)
@@ -243,7 +273,6 @@ main (int argc, char** argv)
         // }
         // std::cout << std::endl;
 
-        dataAddVFH.push_back(it);
             // std::end(vfhFeatures->points[0].histogram) - std::end(vfhFeatures->points[0].histogram)
         // for(auto it : vfhFeatures->points[0].histogram)
         // {
@@ -251,46 +280,29 @@ main (int argc, char** argv)
         //     VFHValue.push_back(it);
         // }
         // VFHValues.push_back(VFHValue);
+        */
     }
     // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
 
 
     // ARTIFICIAL NEURAL NETOWRK
-
-
-    // std::pair<std::string, std::
+    struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
+    fann_type *calc_out;
+    fann_type input[308]; //length of VFH Descriptor
     for(auto it : dataAddVFH)
     {
-        struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
-        fann_type *calc_out;
-        fann_type input[308]; //length of VFH Descriptor
         std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
-        // for(int  i = 0; i < 308; i++)
-        // {
-        //     // input[i] = it[i];
-        //     std::cout << input[i] << " ";
-        // }
-        // std::cout << std::endl;
-        // for(auto it2 : input)
-        // {
-        //     std::cout << it2 << " ";
-        // }
-        // std::cout << std::endl;
 
         calc_out = fann_run(ann, input);
-        // fann_type test[5] = {1, 0, 0, 0, 0};
-        // calc_out = fann_test(ann, input, test);
-        // printf("output test (%f) (%f) (%f) (%f) (%f) \n", 
-        //     calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4]);
-        for(int i = 0 ; i < 8 ; i++)
+
+        for(int i = 0 ; i < ann->num_output ; i++)
         {
             std::cout << calc_out[i]  << " " ;//<< std::endl;
         }
         std::cout << std::endl;
-        // it.first.category = calc_out;
-        fann_destroy(ann);
+        
     }
-    // std::cout << calc_out[9] << std::endl;
+    fann_destroy(ann);
 
 
     return (0);

@@ -243,6 +243,16 @@ target_link_libraries(main_trainning
     fann
 )
 
+
+# main_trainning_testing node
+add_executable(main_trainning_testing src/main_trainning_testing.cpp)
+target_link_libraries(main_trainning_testing 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    fann
+)
+
 # segmentation node
 add_executable(segmentation src/segmentation.cpp)
 target_link_libraries(segmentation 

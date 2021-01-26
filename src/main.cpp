@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include "fann.h"
 #include "floatfann.h"
@@ -21,14 +22,69 @@
 
 // argument 1 => file ex : scene_mug_table.pcd 
 
+struct info{
+  int no;
+  std::string category;
+  std::vector<float> histogram;
+} ;
+typedef std::pair<info, pcl::PointCloud<pcl::PointXYZ>::Ptr> modelsDetail;
+
+// typedef std::pair<info, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> modelRaw;
+
+
 int 
 main (int argc, char** argv)
 {
+
+    /** percobaan **
+    // std::vector<std::string> listDataSet;
+    // std::ifstream listDataSetFile("listDataSetv2.1.txt");
+    // for (std::string line ; getline(listDataSetFile, line);)
+    // {
+    //     listDataSet.push_back(line);
+    // }
+    // // std::cout << listDataSet.size();
+    // fann_type result[listDataSet.size()] = {0, 0, 0.2, 0.4, 0.9, 0.1, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    // std::vector< std::pair<std::string, std::vector<float> > > resultDataSet; 
+    // for (int i = 0; i < listDataSet.size(); i++)
+    // {
+    //     // float tmp = (float);
+    //     // result[i] = (2/i);
+    //     // resultDataSet 
+    //     std::pair<std::string, std::vector<float> > hist;
+    //     std::vector<float> histBin;
+    //     for(int j = 0; j < listDataSet.size(); j++)
+    //     {
+    //         histBin.push_back(result[j]);
+    //     }
+    //     hist.first = listDataSet[i];
+    //     hist.second = histBin;
+    //     resultDataSet.push_back(hist);
+    // }
+
+    // for ( auto it : resultDataSet)
+    // {
+    //     std::vector<std::string> resultsss;
+    //     boost::algorithm::split(resultsss, it.first, boost::is_any_of("/"));
+    //     std::cout << resultsss[1] << std::endl;
+    //     it.first = resultsss[1];
+    //     for(auto it2 : it.second)
+    //     {
+    //         std::cout << it2 << " " ;
+    //     }
+    //     std::cout << std::endl;
+    //     std::cout << std::distance(it.second.begin(), std::max_element(it.second.begin(), it.second.end())) << std::endl;
+    // }
+*/
+    
+
     // Read in the cloud data
     pcl::PCDReader reader;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>), cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
     reader.read (argv[1], *cloud);
     std::cout << "PointCloud before filtering has: " << cloud->size () << " data points." << std::endl; //*
+
 
     // Create the filtering object: downsample the dataset using a leaf size of 1cm
     pcl::VoxelGrid<pcl::PointXYZ> vg;
@@ -92,8 +148,8 @@ main (int argc, char** argv)
     ec.extract (cluster_indices);
 
     //// get the cluster models
-    //   int j = 0;
-    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> models;
+      int j = 0;
+    std::vector<modelsDetail> dataClustered;
     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
     {
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
@@ -105,7 +161,10 @@ main (int argc, char** argv)
 
         std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size () << " data points." << std::endl;
 
-        models.push_back (cloud_cluster);
+        modelsDetail modelClustered;
+        modelClustered.second = cloud_cluster;
+        modelClustered.first.no = j++; 
+        dataClustered.push_back (modelClustered);
         // std::stringstream ss;
         // ss << "src/object_recognition_pkg/output/cloud_cluster_" << j << ".pcd";
         // writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
@@ -115,16 +174,17 @@ main (int argc, char** argv)
 
     //// VFH DESCRIPTOR
     // std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> modelsVFH;
-    std::vector<std::vector<float> > VFHValues;
+    // std::vector<std::vector<float> > VFHValues;
     
-        pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
-        typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
-        VFHEstimationType vfhEstimation;
+    std::vector<modelsDetail> dataAddVFH;
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
+    typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
+    VFHEstimationType vfhEstimation;
 
-    for(auto it : models )
+    for(auto it : dataClustered )
     {
         //  Compute the normals
-        normalEstimation.setInputCloud (it);
+        normalEstimation.setInputCloud (it.second);
 
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         normalEstimation.setSearchMethod (tree);
@@ -140,7 +200,7 @@ main (int argc, char** argv)
         // Setup the feature computation
 
         // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (it);
+        vfhEstimation.setInputCloud (it.second);
 
         // Provide the point cloud with normals
         vfhEstimation.setInputNormals(cloudWithNormals);
@@ -172,46 +232,66 @@ main (int argc, char** argv)
             vfhFeatures->points[0].histogram,
             vfhFeatures->points[0].histogram + 308 
         );
+
+        it.first.histogram = VFHValue;
+        // std::cout << "size historgam : " << it.first.histogram.size() << std::endl;
+
+        // for(auto it2 : it.first.histogram)
+        // {
+        //     std::cout << it2 << " ";
+        //     // it.first.histogram;
+        // }
+        // std::cout << std::endl;
+
+        dataAddVFH.push_back(it);
             // std::end(vfhFeatures->points[0].histogram) - std::end(vfhFeatures->points[0].histogram)
         // for(auto it : vfhFeatures->points[0].histogram)
         // {
         //     // std::cout << it << std::endl;
         //     VFHValue.push_back(it);
         // }
-        VFHValues.push_back(VFHValue);
+        // VFHValues.push_back(VFHValue);
     }
-    
-    std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
+    // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
 
 
     // ARTIFICIAL NEURAL NETOWRK
 
 
-    for(auto it : VFHValues)
+    // std::pair<std::string, std::
+    for(auto it : dataAddVFH)
     {
-        struct fann *ann = fann_create_from_file("listDataSet.net"); // generated from training
+        struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
         fann_type *calc_out;
         fann_type input[308]; //length of VFH Descriptor
-        std::copy(it.begin(), it.end(), input);
+        std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
         // for(int  i = 0; i < 308; i++)
         // {
         //     // input[i] = it[i];
         //     std::cout << input[i] << " ";
         // }
         // std::cout << std::endl;
+        // for(auto it2 : input)
+        // {
+        //     std::cout << it2 << " ";
+        // }
+        // std::cout << std::endl;
+
         calc_out = fann_run(ann, input);
         // fann_type test[5] = {1, 0, 0, 0, 0};
         // calc_out = fann_test(ann, input, test);
         // printf("output test (%f) (%f) (%f) (%f) (%f) \n", 
         //     calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4]);
-        for(int i = 0 ; i < 5 ; i++)
+        for(int i = 0 ; i < 8 ; i++)
         {
             std::cout << calc_out[i]  << " " ;//<< std::endl;
         }
         std::cout << std::endl;
+        // it.first.category = calc_out;
         fann_destroy(ann);
     }
     // std::cout << calc_out[9] << std::endl;
+
 
     return (0);
 }

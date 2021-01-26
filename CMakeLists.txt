@@ -260,3 +260,14 @@ target_link_libraries(extract_feature
     # FLANN::FLANN ${HDF5_LIBRARIES}
     
 )
+
+# learnfann node
+add_executable(learnfann src/learnfann.cpp)
+target_link_libraries(learnfann 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    fann
+    # FLANN::FLANN ${HDF5_LIBRARIES}
+    
+)

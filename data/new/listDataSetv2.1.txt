@@ -1,0 +1,8 @@
+dataset_washington/shampoo/shampoo_1
+dataset_washington/water_bottle/water_bottle_1
+dataset_washington/soda_can/soda_can_1
+dataset_washington/bowl/bowl_1
+dataset_washington/plate/plate_1
+dataset_washington/cereal_box/cereal_box_1
+dataset_washington/notebook/notebook_1
+dataset_washington/coffee_mug/coffee_mug_1

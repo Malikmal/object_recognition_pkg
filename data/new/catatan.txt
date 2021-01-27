@@ -1,0 +1,31 @@
+V2 
+[
+    ann_set_train_error_function(ann, FANN_ERRORFUNC_LINEAR); //The default error function is FANN_ERRORFUNC_TANH
+    fann_set_train_stop_function(ann, FANN_STOPFUNC_MSE); //The default stop function is FANN_STOPFUNC_MSE
+    fann_set_training_algorithm(ann, FANN_TRAIN_BATCH); // deafult FANN_TRAIN_RPROP
+    fann_set_learning_rate(ann, 0.7); //deafult fann 0.7
+    fann_randomize_weights(ann, 0.0, 5.0);
+    fann_reset_MSE(ann);
+]
+
+
+#v2.1 
+308 -> 308*2 -> 308 -> 8
+
+#2.2 
+308 -> 308 -> 154 -> 77 -> 38 -> 19 -> 8
+
+
+V3
+[
+    DEFAULT 
+]
+
+
+
+aaaaaaa
+->308 -> 308 -> 8
+
+bbbbbbb
+-> 308 -> 154 -> 64 -> 8
+

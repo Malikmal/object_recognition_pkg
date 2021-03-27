@@ -204,6 +204,34 @@ include_directories(
 
 # -------- MY CODE ---------- #
 
+# start of opencv
+find_package(catkin REQUIRED COMPONENTS
+  cv_bridge
+  image_transport
+  roscpp
+  sensor_msgs
+  std_msgs
+)
+
+find_package(OpenCV REQUIRED)
+
+include_directories(
+#   ${catkin_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+#   ${PCL_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+)
+
+link_directories(	
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${PCL_LIBRARY_DIRS}
+)
+#end of opencv
+
+
+
 
 # Find PointCLoud Libraries
 find_package(PCL 1.2 REQUIRED)
@@ -281,3 +309,33 @@ target_link_libraries(learnfann
     # FLANN::FLANN ${HDF5_LIBRARIES}
     
 )
+
+
+# SET(PLATFORM_SPECIFIC_LIBS "-lpthread")
+# SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -pthread")
+
+# try_kinect node
+add_executable(try_kinect src/try_kinect.cpp)
+target_link_libraries(try_kinect 
+    # ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    # ${Boost_LIBRARIES}
+    # fann
+    # FLANN::FLANN ${HDF5_LIBRARIES}
+    
+)
+
+
+
+# opencv node
+add_executable(opencv src/opencv.cpp)
+target_link_libraries(opencv 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    # ${Boost_LIBRARIES}
+    # fann
+    # FLANN::FLANN ${HDF5_LIBRARIES}
+    
+)
+
+

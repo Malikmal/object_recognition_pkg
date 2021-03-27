@@ -1,5 +1,6 @@
 {
     "python.autoComplete.extraPaths": [
         ""
-    ]
+    ],
+    "ros.distro": "noetic"
 }

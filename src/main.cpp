@@ -19,7 +19,14 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/visualization/histogram_visualizer.h>
+#include <pcl/recognition/linemod/line_rgbd.h>
+#include <pcl/common/transforms.h>
+#include <pcl/common/centroid.h>
+#include <pcl/common/eigen.h>
+#include <pcl/common/common.h>
+
 
 // argument 1 => file ex : scene_mug_table.pcd 
 
@@ -32,6 +39,41 @@ typedef std::pair<info, pcl::PointCloud<pcl::PointXYZ>::Ptr> modelsDetail;
 
 // typedef std::pair<info, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> modelRaw;
 
+int BoundingBox(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr)
+{
+
+    // compute principal direction
+    Eigen::Vector4f centroid;
+    pcl::compute3DCentroid(*point_cloud_ptr, centroid);
+    Eigen::Matrix3f covariance;
+    computeCovarianceMatrixNormalized(*point_cloud_ptr, centroid,covariance);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance,  Eigen::ComputeEigenvectors);
+    Eigen::Matrix3f eigDx = eigen_solver.eigenvectors();
+    eigDx.col(2) = eigDx.col(0).cross(eigDx.col(1));
+
+    // move the points to the that reference frame
+    Eigen::Matrix4f p2w(Eigen::Matrix4f::Identity());
+    p2w.block<3,3>(0,0) = eigDx.transpose();
+    p2w.block<3,1>(0,3) = -1.f * (p2w.block<3,3>(0,0) * centroid.head<3>());
+    pcl::PointCloud<pcl::PointXYZ> cPoints;
+    pcl::transformPointCloud(*point_cloud_ptr, cPoints, p2w);
+
+    pcl::PointXYZ min_pt, max_pt;
+    pcl::getMinMax3D(cPoints, min_pt, max_pt);
+    const Eigen::Vector3f mean_diag = 0.5f*(max_pt.getVector3fMap() + min_pt.getVector3fMap());
+
+    // final transform
+    const Eigen::Quaternionf qfinal(eigDx);
+    const Eigen::Vector3f tfinal = eigDx*mean_diag + centroid.head<3>();
+
+    // draw the cloud and the box
+    pcl::visualization::PCLVisualizer viewer;
+    viewer.addPointCloud(point_cloud_ptr);
+    viewer.addCube(tfinal, qfinal, max_pt.x - min_pt.x, max_pt.y - min_pt.y, max_pt.z - min_pt.z);
+    viewer.spin();
+
+    return(0);
+}
 
 int 
 main (int argc, char** argv)
@@ -82,20 +124,22 @@ main (int argc, char** argv)
 
     // Read in the cloud data
     pcl::PCDReader reader;
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>), cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_nan (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
     reader.read (argv[1], *cloud);
     std::cout << "PointCloud before filtering has: " << cloud->size () << " data points." << std::endl; //*
 
 
     // Filter Removing NaN data Pointcloud.
     std::vector<int> mapping;
-    pcl::removeNaNFromPointCloud(*cloud, *cloud, mapping);
+    pcl::removeNaNFromPointCloud(*cloud, *cloud_nan, mapping);
     std::cerr << "Pointcloud after remove NaN : " << cloud->size() << " data points." << std::endl;
 
     // Filter object crop by z coordinate
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_passthrough(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PassThrough<pcl::PointXYZ> pass;
-    pass.setInputCloud (cloud);
+    pass.setInputCloud (cloud_nan);
     pass.setFilterFieldName ("z");
     pass.setFilterLimits (0.0, 2.0);
     //pass.setFilterLimitsNegative (true);
@@ -191,9 +235,11 @@ main (int argc, char** argv)
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
         for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
             cloud_cluster->push_back ((*cloud_filtered)[*pit]); //*
+
         cloud_cluster->width = cloud_cluster->size ();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
+        
 
         std::cout << "PointCloud representing the Cluster: " << cloud_cluster->size () << " data points." << std::endl;
 
@@ -303,6 +349,74 @@ main (int argc, char** argv)
         
     }
     fann_destroy(ann);
+
+
+
+
+    //visualize
+    // pcl::visualization::PCLVisualizer viewer("Test visualize");
+    // viewer.addPointCloud( cloud, "cloud"); 
+    
+    BoundingBox(cloud);
+
+    // while(!viewer.wasStopped())
+    // {
+    //     // cloud->boundingBox(viewer, 1);
+    //     // Viewer.addCube(Min.x, Max.x, Min.y, Max.y, Min.z, Max.z, 1, 0, 0, "AABB");
+    //     viewer.addCube(0, 0, 0 , 1, 1, 1, 1, 0, 0, "AABB");
+    //     viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "AABB");
+
+    //     /***
+    //      * 
+    //     Use this :
+    //     viewer->addCube(bboxTransform, bboxQuaternion, maxP.x - minP.x, maxP.y -
+    //     minP.y, maxP.z - minP.z, "bbox");
+
+    //     viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR,
+    //     0.7, 0.7, 0, "bbox");
+    //     viewer->setRepresentationToWireframeForAllActors();
+    //      */
+
+
+    //     // pcl::PointXYZRGB min_point,max_point;
+    //     // Eigen::Vector4f pcaCentroid;
+    //     // pcl::compute3DCentroid(*cloud,pcaCentroid);
+    //     // Eigen::Matrix3f covariance;
+    //     // pcl::computeCovarianceMatrixNormalized(*cloud,pcaCentroid,covariance);
+    //     // //Compute eigenvectors and eigenvalues of covariance matrix using Eigen
+    //     // Eigen::SelfAdjointEigenSolverEigen::Matrix3f eigen_solver(covariance, Eigen::ComputeEigenvectors);
+    //     // //Eigen vectors
+    //     // Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();
+    //     // // Extract the eigenvalues and eigenvectors using PCL
+    //     // Eigen::Vector3f eigen_values;
+    //     // Eigen::Matrix3f eigen_vectors;
+    //     // pcl::eigen33 (covariance, eigen_vectors, eigen_values);
+
+    //     // /// This line is necessary for proper orientation in some cases. The numbers come out the same without it, but
+    //     // /// the signs are different and the box doesn't get correctly oriented in some cases.
+    //     // eigenVectorsPCA.col(2) = eigenVectorsPCA.col(0).cross(eigenVectorsPCA.col(1));
+
+    //     // // Transform the original cloud to the origin point where the principal components correspond to the axes.
+    //     // Eigen::Matrix4f projectionTransform(Eigen::Matrix4f::Identity());
+    //     // projectionTransform.block<3,3>(0,0) = eigenVectorsPCA.transpose();
+    //     // projectionTransform.block<3,1>(0,3) = -1.f * (projectionTransform.block<3,3>(0,0) * pcaCentroid.head<3>());
+
+    //     // pcl::PointCloudpcl::PointXYZRGB::Ptr cloudPointsProjected (new pcl::PointCloudpcl::PointXYZRGB);
+    //     // pcl::transformPointCloud(*cloud,*cloudPointsProjected,projectionTransform);
+    //     // // Get the minimum and maximum points of the transformed cloud.
+    //     // pcl::getMinMax3D(cloudPointsProjected, min_point, max_point);
+    //     // const Eigen::Vector3f meanDiagonal = 0.5f(max_point.getVector3fMap() + min_point.getVector3fMap());
+    //     // //Finally, the quaternion is calculated using the eigenvectors (which determines how the final box gets rotated),
+    //     // //and the transform to put the box in correct location is calculated.
+    //     // //The minimum and maximum points are used to determine the box width, height, and depth.
+    //     // const Eigen::Quaternionf bboxQuaternion(eigenVectorsPCA); //Quaternions are a way to do rotations
+    //     // //translation
+    //     // const Eigen::Vector3f bboxTransform = eigenVectorsPCA * meanDiagonal + pcaCentroid.head<3>();
+    //     // //Add Cube
+    //     // viewer_->addCube(bboxTransform, bboxQuaternion, max_point.x - min_point.x, max_point.y - min_point.y, max_point.z - min_point.z);
+
+    //     viewer.spinOnce();
+    // }
 
 
     return (0);

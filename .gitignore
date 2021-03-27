@@ -1,0 +1,6 @@
+output/cluster/*
+output/filter/*
+output/segmentation/*
+output/vfh/*
+
+output/output.zip

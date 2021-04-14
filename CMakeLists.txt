@@ -339,3 +339,12 @@ target_link_libraries(opencv
 )
 
 
+
+# # testviz node
+# add_executable(testviz src/testviz.cpp)
+# target_link_libraries(testviz 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+# )
+
+

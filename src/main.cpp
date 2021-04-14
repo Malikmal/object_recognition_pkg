@@ -23,9 +23,9 @@
 #include <pcl/visualization/histogram_visualizer.h>
 #include <pcl/recognition/linemod/line_rgbd.h>
 #include <pcl/common/transforms.h>
+#include <pcl/common/common.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
-#include <pcl/common/common.h>
 
 
 // argument 1 => file ex : scene_mug_table.pcd 
@@ -33,46 +33,68 @@
 struct info{
   int no;
   std::string category;
+  float score;
   std::vector<float> histogram;
 } ;
 typedef std::pair<info, pcl::PointCloud<pcl::PointXYZ>::Ptr> modelsDetail;
 
 // typedef std::pair<info, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> modelRaw;
 
-int BoundingBox(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr)
+int BoundingBox(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr, pcl::visualization::PCLVisualizer &viewer)
 {
-
-    // compute principal direction
+    // // ref : https://stackoverflow.com/questions/40522181/to-extract-a-set-of-feature-and-cluster-data-from-the-given-point-cloud-data
+    // // compute principal direction
     Eigen::Vector4f centroid;
     pcl::compute3DCentroid(*point_cloud_ptr, centroid);
-    Eigen::Matrix3f covariance;
-    computeCovarianceMatrixNormalized(*point_cloud_ptr, centroid,covariance);
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance,  Eigen::ComputeEigenvectors);
-    Eigen::Matrix3f eigDx = eigen_solver.eigenvectors();
-    eigDx.col(2) = eigDx.col(0).cross(eigDx.col(1));
+    std::cout <<  "centroid : " << centroid << std::endl;
+    // Eigen::Matrix3f covariance;
+    // computeCovarianceMatrixNormalized(*point_cloud_ptr, centroid,covariance);
+    // Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance,  Eigen::ComputeEigenvectors);
+    // Eigen::Matrix3f eigDx = eigen_solver.eigenvectors();
+    // eigDx.col(2) = eigDx.col(0).cross(eigDx.col(1));
 
-    // move the points to the that reference frame
-    Eigen::Matrix4f p2w(Eigen::Matrix4f::Identity());
-    p2w.block<3,3>(0,0) = eigDx.transpose();
-    p2w.block<3,1>(0,3) = -1.f * (p2w.block<3,3>(0,0) * centroid.head<3>());
-    pcl::PointCloud<pcl::PointXYZ> cPoints;
-    pcl::transformPointCloud(*point_cloud_ptr, cPoints, p2w);
+    // // move the points to the that reference frame
+    // Eigen::Matrix4f p2w(Eigen::Matrix4f::Identity());
+    // p2w.block<3,3>(0,0) = eigDx.transpose();
+    // p2w.block<3,1>(0,3) = -1.f * (p2w.block<3,3>(0,0) * centroid.head<3>());
+    // pcl::PointCloud<pcl::PointXYZ> cPoints;
+    // pcl::transformPointCloud(*point_cloud_ptr, cPoints, p2w);
 
-    pcl::PointXYZ min_pt, max_pt;
-    pcl::getMinMax3D(cPoints, min_pt, max_pt);
-    const Eigen::Vector3f mean_diag = 0.5f*(max_pt.getVector3fMap() + min_pt.getVector3fMap());
+    // pcl::PointXYZ min_pt, max_pt;
+    // pcl::getMinMax3D(cPoints, min_pt, max_pt);
+    // const Eigen::Vector3f mean_diag = 0.5f*(max_pt.getVector3fMap() + min_pt.getVector3fMap());
 
-    // final transform
-    const Eigen::Quaternionf qfinal(eigDx);
-    const Eigen::Vector3f tfinal = eigDx*mean_diag + centroid.head<3>();
+    // // final transform
+    // const Eigen::Quaternionf qfinal(eigDx);
+    // const Eigen::Vector3f tfinal = eigDx*mean_diag + centroid.head<3>();
 
-    // draw the cloud and the box
-    pcl::visualization::PCLVisualizer viewer;
-    viewer.addPointCloud(point_cloud_ptr);
-    viewer.addCube(tfinal, qfinal, max_pt.x - min_pt.x, max_pt.y - min_pt.y, max_pt.z - min_pt.z);
-    viewer.spin();
+    // // draw the cloud and the box
+    // // pcl::visualization::PCLVisualizer viewer;
+    // // viewer.addPointCloud(point_cloud_ptr);
+    // viewer.addCube(-tfinal, qfinal, max_pt.x - min_pt.x, max_pt.y - min_pt.y, max_pt.z - min_pt.z);//, "AABB");
+    // // viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, "AABB");
+    // // viewer.spin();
 
-    return(0);
+
+
+    pcl::PointXYZ minPt, maxPt;
+    pcl::getMinMax3D (*point_cloud_ptr, minPt, maxPt);
+    // std::cout << "Min x: " << minPt.x << std::endl;
+    // std::cout << "Max x: " << maxPt.x << std::endl;
+    // std::cout << "Min y: " << minPt.y << std::endl;
+    // std::cout << "Max y: " << maxPt.y << std::endl;
+    // std::cout << "Min z: " << minPt.z << std::endl;
+    // std::cout << "Max z: " << maxPt.z << std::endl;
+    std::string bboxId = "BBOX" + std::to_string(rand() % 100);
+    std::string textId = "TEXT" + std::to_string(rand() % 100);
+    // std::cout << "bboxId : " << bboxId << std::endl;
+    viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
+    viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
+    // viewer.addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
+    viewer.addText3D(textId, pcl::PointXYZ(maxPt.x, -maxPt.y, -minPt.z), 0.05, 255.0, 1.0, 1.0,  textId);
+
+    // viewer.addPointCloud(*point_cloud_ptr);
+    return(1);
 }
 
 int 
@@ -120,16 +142,38 @@ main (int argc, char** argv)
     //     std::cout << std::distance(it.second.begin(), std::max_element(it.second.begin(), it.second.end())) << std::endl;
     // }
 */
-    
+    pcl::visualization::PCLVisualizer viewer;
 
     // Read in the cloud data
     pcl::PCDReader reader;
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudRGB (new pcl::PointCloud<pcl::PointXYZRGBA>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_nan (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
+    reader.read (argv[1], *cloudRGB);
     reader.read (argv[1], *cloud);
+    // pcl::copyPointC
+    
+    
+    // copyPointCloud(cloudRGB, cloud);
     std::cout << "PointCloud before filtering has: " << cloud->size () << " data points." << std::endl; //*
 
+
+    //transform scene
+    Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
+    transform_2.rotate(Eigen::AngleAxisf(45, Eigen::Vector3f::UnitX()));
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGBA> ());
+    pcl::transformPointCloud (*cloudRGB, *transformed_cloud, transform_2);
+    pcl::transformPointCloud (*cloud, *cloud, transform_2);
+
+    // add original pointcloud to viewer
+    viewer.addPointCloud(transformed_cloud);
+    // viewer.addPointCloud(cloud);
+    viewer.addCoordinateSystem (1.0);
+    viewer.initCameraParameters ();
+    viewer.setCameraPosition(0, 30, 0,    0, 0, 0,   0, 0, 1);
+    viewer.setCameraFieldOfView(0.523599);
+    viewer.setCameraClipDistances(0.00522511, 50);
 
     // Filter Removing NaN data Pointcloud.
     std::vector<int> mapping;
@@ -253,6 +297,10 @@ main (int argc, char** argv)
         ss << "src/object_recognition_pkg/output/cluster/cloud_cluster_" << i << ".pcd";
         writer.write<pcl::PointXYZ> (ss.str (), *cloud_cluster, false); //*
         i++;
+
+
+        // BoundingBox(cloud_cluster, viewer);
+        // viewer.addPointCloud(cloud_cluster);
     }
 
 
@@ -331,7 +379,21 @@ main (int argc, char** argv)
     // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
 
 
+    // READ label/class trainned (dataset)
+    std::vector<std::string> listDataSet;
+    std::ifstream listDataSetFile("listDataSetv2.1.txt");
+    for (std::string line ; getline(listDataSetFile, line);)
+    {
+
+        std::vector<std::string> stringLabelParsed;
+        boost::algorithm::split(stringLabelParsed, line, boost::is_any_of("/"));
+        listDataSet.push_back(stringLabelParsed[1]);
+    }
+
+
     // ARTIFICIAL NEURAL NETOWRK
+
+    std::vector<modelsDetail> dataCompleted;
     struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
@@ -341,11 +403,24 @@ main (int argc, char** argv)
 
         calc_out = fann_run(ann, input);
 
+        //find max score 
+        int maxIndex = 0, maxValue = 0;
         for(int i = 0 ; i < ann->num_output ; i++)
         {
-            std::cout << calc_out[i]  << " " ;//<< std::endl;
+            // std::cout << calc_out[i]  << " " ;//<< std::endl;
+            //  std::cout << (calc_out[i] * 100) << " % " 
+            //     << "   " << listDataSet[i] 
+            //     << std::endl;
+
+            if(calc_out[i] > maxValue){
+                maxIndex = i;
+            }
+
         }
-        std::cout << std::endl;
+        std::cout << "max : " << calc_out[maxIndex] * 100 << "% " << listDataSet[maxIndex] << std::endl;
+        it.first.category = listDataSet[maxIndex];
+        it.first.score = calc_out[maxIndex]*100.0;
+        dataCompleted.push_back(it);
         
     }
     fann_destroy(ann);
@@ -354,10 +429,37 @@ main (int argc, char** argv)
 
 
     //visualize
+    for(auto it:dataCompleted)
+    {
+        pcl::PointXYZ minPt, maxPt;
+        pcl::getMinMax3D (*it.second, minPt, maxPt);
+        // std::cout << "Min x: " << minPt.x << std::endl;
+        // std::cout << "Max x: " << maxPt.x << std::endl;
+        // std::cout << "Min y: " << minPt.y << std::endl;
+        // std::cout << "Max y: " << maxPt.y << std::endl;
+        // std::cout << "Min z: " << minPt.z << std::endl;
+        // std::cout << "Max z: " << maxPt.z << std::endl;
+        std::string bboxId = "BBOX" + std::to_string(rand() % 100);
+        std::string textId = "TEXT" + std::to_string(rand() % 100);
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(2) << it.first.score;
+        std::string textLabel = (it.first.category + " " + stream.str() + "%"); 
+        // std::cout << "bboxId : " << bboxId << std::endl;
+        viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
+        viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
+        // viewer.addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
+
+        viewer.addText3D(textLabel, pcl::PointXYZ(maxPt.x, -maxPt.y, -minPt.z), 0.05, 255.0, 1.0, 1.0,  textId);
+
+    }
+    
+    
     // pcl::visualization::PCLVisualizer viewer("Test visualize");
     // viewer.addPointCloud( cloud, "cloud"); 
+    viewer.spin();
+    // BoundingBox(cloud);
+    // BoundingBox(cloud_cluster, viewer);
     
-    BoundingBox(cloud);
 
     // while(!viewer.wasStopped())
     // {

@@ -348,3 +348,16 @@ target_link_libraries(opencv
 # )
 
 
+
+
+
+
+# main_trainning_own_dataset node
+add_executable(main_trainning_own_dataset src/main_trainning_own_dataset.cpp)
+target_link_libraries(main_trainning_own_dataset 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+)
+
+

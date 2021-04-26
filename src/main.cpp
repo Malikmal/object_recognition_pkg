@@ -164,7 +164,6 @@ main (int argc, char** argv)
     transform_2.rotate(Eigen::AngleAxisf(45, Eigen::Vector3f::UnitX()));
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGBA> ());
     pcl::transformPointCloud (*cloudRGB, *transformed_cloud, transform_2);
-    pcl::transformPointCloud (*cloud, *cloud, transform_2);
 
     // add original pointcloud to viewer
     viewer.addPointCloud(transformed_cloud);
@@ -203,6 +202,9 @@ main (int argc, char** argv)
     //save the result of downsample voxel grid
     pcl::io::savePCDFile("src/object_recognition_pkg/output/filter/voxel_grid.pcd", *cloud_filtered);
     
+
+    //trasnform cloud 45deg
+    pcl::transformPointCloud (*cloud_filtered, *cloud_filtered, transform_2);
 
 
     // Create the segmentation object for the planar model and set all the parameters

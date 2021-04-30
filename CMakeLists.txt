@@ -205,6 +205,9 @@ include_directories(
 # -------- MY CODE ---------- #
 
 # start of opencv
+find_package(OpenCV REQUIRED)
+find_package(realsense2 REQUIRED)
+
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
@@ -213,20 +216,21 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
 )
 
-find_package(OpenCV REQUIRED)
 
 include_directories(
-#   ${catkin_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/src/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include
-#   ${PCL_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
 )
 
 link_directories(	
   ${CMAKE_CURRENT_SOURCE_DIR}/src/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${PCL_LIBRARY_DIRS}
+  ${OpenCV_LIBRARY_DIRS}
 )
 #end of opencv
 
@@ -281,62 +285,62 @@ target_link_libraries(main_trainning_testing
     fann
 )
 
-# segmentation node
-add_executable(segmentation src/segmentation.cpp)
-target_link_libraries(segmentation 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-)
+# # segmentation node
+# add_executable(segmentation src/segmentation.cpp)
+# target_link_libraries(segmentation 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+# )
 
 
-# extract_feature node
-add_executable(extract_feature src/extract_feature.cpp)
-target_link_libraries(extract_feature 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    ${Boost_LIBRARIES}
-    # FLANN::FLANN ${HDF5_LIBRARIES}
+# # extract_feature node
+# add_executable(extract_feature src/extract_feature.cpp)
+# target_link_libraries(extract_feature 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     ${Boost_LIBRARIES}
+#     # FLANN::FLANN ${HDF5_LIBRARIES}
     
-)
+# )
 
-# learnfann node
-add_executable(learnfann src/learnfann.cpp)
-target_link_libraries(learnfann 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    ${Boost_LIBRARIES}
-    fann
-    # FLANN::FLANN ${HDF5_LIBRARIES}
+# # learnfann node
+# add_executable(learnfann src/learnfann.cpp)
+# target_link_libraries(learnfann 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     ${Boost_LIBRARIES}
+#     fann
+#     # FLANN::FLANN ${HDF5_LIBRARIES}
     
-)
+# )
 
 
 # SET(PLATFORM_SPECIFIC_LIBS "-lpthread")
 # SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -pthread")
 
-# try_kinect node
-add_executable(try_kinect src/try_kinect.cpp)
-target_link_libraries(try_kinect 
-    # ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    # ${Boost_LIBRARIES}
-    # fann
-    # FLANN::FLANN ${HDF5_LIBRARIES}
+# # try_kinect node
+# add_executable(try_kinect src/try_kinect.cpp)
+# target_link_libraries(try_kinect 
+#     # ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     # ${Boost_LIBRARIES}
+#     # fann
+#     # FLANN::FLANN ${HDF5_LIBRARIES}
     
-)
+# )
 
 
 
-# opencv node
-add_executable(opencv src/opencv.cpp)
-target_link_libraries(opencv 
-    ${catkin_LIBRARIES}
-    ${PCL_LIBRARIES}
-    # ${Boost_LIBRARIES}
-    # fann
-    # FLANN::FLANN ${HDF5_LIBRARIES}
+# # opencv node
+# add_executable(opencv src/opencv.cpp)
+# target_link_libraries(opencv 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     # ${Boost_LIBRARIES}
+#     # fann
+#     # FLANN::FLANN ${HDF5_LIBRARIES}
     
-)
+# )
 
 
 
@@ -361,3 +365,19 @@ target_link_libraries(main_trainning_own_dataset
 )
 
 
+# main_camera node
+add_executable(main_camera src/main_camera.cpp)
+target_link_libraries(main_camera 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)

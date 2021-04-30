@@ -72,7 +72,7 @@ int FANN_API callbackTrainning(
 }
 
 // /****************** Filter & Segmentation **************************/
-void filter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered){
+void filtering(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered){
 
 
   // Filter Removing NaN data Pointcloud.
@@ -162,6 +162,71 @@ void filter(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud, pcl::PointCloud<pcl::
 
 }
 
+// /****************** Extrack feature (descriptor) **************************/
+void descriptoring(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered, pcl::PointCloud<pcl::VFHSignature308>::Ptr &vfhFeatures)
+{
+    // // VFH DESCRIPTOR
+    // // std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> modelsVFH;
+    // std::vector<std::vector<float> > VFHValues;
+
+    // //write file for data trainninng FANN librray format
+    // ofstream MyFile("listOwnDataSetv0.1.data");
+    // MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
+    
+    pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
+    typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
+    VFHEstimationType vfhEstimation;
+
+    // std::cout << it.size() << std::endl;
+
+    //  Compute the normals
+    normalEstimation.setInputCloud (cloud_filtered);
+
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+    normalEstimation.setSearchMethod (tree);
+
+    normalEstimation.setRadiusSearch (0.03);
+
+    pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
+    normalEstimation.compute (*cloudWithNormals);
+
+    // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
+    
+    // Setup the feature computation
+
+    // Provide the original point cloud (without normals)
+    vfhEstimation.setInputCloud (cloud_filtered);
+
+    // Provide the point cloud with normals
+    vfhEstimation.setInputNormals(cloudWithNormals);
+
+    // Use the same KdTree from the normal estimation
+    vfhEstimation.setSearchMethod (tree);
+
+    //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
+
+    // Actually compute the VFH features
+    // pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
+    vfhEstimation.compute (*vfhFeatures);
+
+    // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
+
+    // Display and retrieve the shape context descriptor vector for the 0th point.
+    // pcl::VFHSignature308 descriptor = vfhFeatures->points[0];
+    // VFHEstimationType::PointCloudOut::PointType descriptor2 = vfhFeatures->points[0];
+    // std::cout << descriptor << std::endl;
+
+    //push to vector 
+    // modelsVFH.push_back (vfhFeatures);
+
+    // VFHValues.push_back(vfhFeatures->points[0].histogram);
+    // std::vector<float> VFHValues;
+    // float vfh[308] = vfhFeatures->points[0].histogram;
+
+    std::cout  << " vfh calculated : " << vfhFeatures->size() << std::endl;// << VFHValue.size();
+  // std::cout << it.first.no << ". VFH calculated " << it.first.category << " of file : "<< it.first.filename << std::endl;
+}
+
 
 void LoadModels (const boost::filesystem::path &base_dir, const std::string &extension, std::vector<modelRaw> &models)
 {
@@ -197,19 +262,50 @@ void LoadModels (const boost::filesystem::path &base_dir, const std::string &ext
       std::cout << "base_dir << '/' "<< it->path ().filename ().string() << std::endl;
       std::cout << dataInfo.no << ". reading " << dataInfo.category << " file : "<< dataInfo.filename << std::endl;
 
-      pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
-      viewer->addCoordinateSystem (1.0);
+      /** visualize each model
+      // pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+      // // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
 
-      filter(cloud, cloud_filtered);
-      viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, "sample cloud");
+      // int v1(0);
+      // viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+      // viewer->setBackgroundColor (0, 0, 0, v1);
+      // viewer->addText("original", 10, 10, "v1 text", v1);
+      // pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud(cloud);
+      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, rgb_cloud, "original", v1);
+      **/
 
-      while(!viewer->wasStopped())
-      {
-        viewer->spinOnce (100);
-        // std::this_thread::sleep_for(100ms);
-      }
+      filtering(cloud, cloud_filtered);
+      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, "sample cloud");
+
+      /** visualize each model after segmentation
+      // int v2(0);
+      // viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+      // viewer->setBackgroundColor (0, 0, 0, v2);
+      // viewer->addText("filtered and segmented", 10, 10, "v2 text", v2);
+      // pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud_filtered(cloud_filtered);
+      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, rgb_cloud_filtered, "filtered and segmented", v2);
+
+      // pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
+
+      // viewer->addCoordinateSystem (1.0);
+
+      // descriptoring(cloud_filtered, vfhFeatures);
+
+	    // pcl::visualization::PCLHistogramVisualizer viewerHistogram;
+      // viewerHistogram.addFeatureHistogram(*vfhFeatures, 308);
+
+
+      // viewerHistogram.spin();
+
+
+      // while(!viewer->wasStopped())
+      // {
+      //   viewer->spinOnce (100);
+      //   // std::this_thread::sleep_for(100ms);
+      // }
+      **/
       
+
     } 
   }
 }
@@ -238,99 +334,7 @@ int main (int argc, char** argv)
     }
     MyFileData.close();
 
-    // //// VFH DESCRIPTOR
-    // // std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> modelsVFH;
-    // std::vector<std::vector<float> > VFHValues;
-
-    // //write file for data trainninng FANN librray format
-    // ofstream MyFile("listOwnDataSetv0.1.data");
-    // MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
     
-    // pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
-    // typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
-    // VFHEstimationType vfhEstimation;
-
-    // // for(std::size_t i = 0; i < models.size(); ++i )
-    // for(auto it : models)
-    // {
-
-    //     // std::cout << it.size() << std::endl;
-
-    //     //  Compute the normals
-    //     normalEstimation.setInputCloud (it.second);
-
-    //     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-    //     normalEstimation.setSearchMethod (tree);
-
-
-    //     normalEstimation.setRadiusSearch (0.03);
-
-    //     pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
-    //     normalEstimation.compute (*cloudWithNormals);
-
-    //     // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
-        
-    //     // Setup the feature computation
-
-    //     // Provide the original point cloud (without normals)
-    //     vfhEstimation.setInputCloud (it.second);
-
-    //     // Provide the point cloud with normals
-    //     vfhEstimation.setInputNormals(cloudWithNormals);
-
-    //     // Use the same KdTree from the normal estimation
-    //     vfhEstimation.setSearchMethod (tree);
-
-    //     //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
-
-    //     // Actually compute the VFH features
-    //     pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-    //     vfhEstimation.compute (*vfhFeatures);
-
-    //     // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
-
-    //     // Display and retrieve the shape context descriptor vector for the 0th point.
-    //     // pcl::VFHSignature308 descriptor = vfhFeatures->points[0];
-    //     // VFHEstimationType::PointCloudOut::PointType descriptor2 = vfhFeatures->points[0];
-    //     // std::cout << descriptor << std::endl;
-
-    //     //push to vector 
-    //     // modelsVFH.push_back (vfhFeatures);
-
-    //     // VFHValues.push_back(vfhFeatures->points[0].histogram);
-    //     // std::vector<float> VFHValues;
-    //     // float vfh[308] = vfhFeatures->points[0].histogram;
-
-    //     std::vector<float> VFHValue;
-    //     for(auto it2 : vfhFeatures->points[0].histogram)
-    //     {
-    //         // std::cout << it2 << std::endl;
-    //         VFHValue.push_back(it2);
-    //         MyFile << it2 << " " ;
-    //     }
-    //     MyFile << std::endl;
-    //     // int i = 0;
-    //     for(auto it2 : category)
-    //     {
-    //       if(it2 == it.first.no)
-    //           MyFile << 1 ;      
-    //       else
-    //           MyFile << 0 ;
-    //       MyFile << " "; 
-    //     }
-    //     MyFile << std::endl;
-    //     // MyFile << it.first.no << " " << std::endl;
-    //     VFHValues.push_back(VFHValue);
-
-
-    //     // std::cout << it.first.filename << " vfh calculated : " << std::endl;// << VFHValue.size();
-    //   std::cout << it.first.no << ". VFH calculated " << it.first.category << " of file : "<< it.first.filename << std::endl;
-    // }
-    
-    // // Close the file
-    // MyFile.close();
-    // std::cout << "jumlah data vfh : " << VFHValues.size();
-
 
 
 

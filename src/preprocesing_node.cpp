@@ -85,7 +85,10 @@ pclXYZRGBptr acquiredCloud (new pclXYZRGB());
 pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeature(new pcl::PointCloud<pcl::VFHSignature308>());
 std::vector<std::string> listDataSet;
 cv::Mat acquiredImage, acquiredImageRotate;
-
+sensor_msgs::PointCloud2Ptr cloudMsg(new sensor_msgs::PointCloud2());
+// ros::init();
+// ros::NodeHandle nh ;//(new ros::NodeHandle());
+// ros::Publisher pclpub;// = nh.advertise<sensor_msgs::PointCloud2>("/RSpclPreprocessing", 1);
 
 
 inline float PackRGB(uint8_t r, uint8_t g, uint8_t b) {
@@ -125,6 +128,8 @@ void imageShow(const cv::Mat image){
 	cv::imshow("OCV RS 2D Viewer", image);
 	cv::waitKey(30);
 }
+
+
 
 void subMain()
 {
@@ -199,164 +204,7 @@ void subMain()
 
         i++;
     }    
-    /******************** segmentation-end ****************************/ 
-
-
-
-    /******************** clustering-start ****************************/ 
-    // Creating the KdTree object for the search method of the extraction
-    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-    tree->setInputCloud (acquiredCloud);
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-    ec.setClusterTolerance (0.02); // 2cm
-    ec.setMinClusterSize (100);
-    ec.setMaxClusterSize (25000);
-    ec.setSearchMethod (tree);
-    ec.setInputCloud (acquiredCloud);
-    ec.extract (cluster_indices);
-
-    //// get the cluster models
-    i = 0;
-    // std::vector<modelsDetail> dataClustered;
-    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-    {
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
-        for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
-            cloud_cluster->push_back ((*acquiredCloud)[*pit]); //*
-
-        cloud_cluster->width = cloud_cluster->size ();
-        cloud_cluster->height = 1;
-        cloud_cluster->is_dense = true;
-
-
-        modelsDetail modelClustered;
-        modelClustered.second = cloud_cluster;
-        modelClustered.first.no = i; 
-        objectData.push_back (modelClustered);
-        
-
-        if(cloud_clustered->size() < cloud_cluster->size())
-        *cloud_clustered = *cloud_cluster;
-
-        // BoundingBox(cloud_cluster, viewer);
-        // viewer.addPointCloud(cloud_cluster);
-
-        // pcl::PointXYZRGB minPt, maxPt;
-        // pcl::getMinMax3D (*cloud_cluster, minPt, maxPt);
-        // std::string bboxId = "BBOX" + std::to_string(rand() % 100);
-        // viewer->addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
-        // viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
-        // // viewer->addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
-    }
-    *acquiredCloud = *cloud_clustered;
-    /******************** clustering-end ****************************/ 
-
-
-    /******************** descriptoring-start ****************************/ 
-    //// VFH DESCRIPTOR  
-    std::vector<modelsDetail> dataAddVFH;
-    pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
-    
-    VFHEstimationType vfhEstimation;
-    i = 0;
-    for(auto it : objectData )
-    {
-
-        //  Compute the normals
-        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-        normalEstimation.setInputCloud (it.second);
-        normalEstimation.setSearchMethod (tree);
-        normalEstimation.setRadiusSearch (0.03);
-        pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
-        normalEstimation.compute (*cloudWithNormals);
-        // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
-        
-        // Setup the feature computation
-        // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (it.second);    // Provide the point cloud with normals
-        vfhEstimation.setInputNormals(cloudWithNormals);    // Use the same KdTree from the normal estimation
-        vfhEstimation.setSearchMethod (tree);
-        // vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
-        // Actually compute the VFH features
-        pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-        vfhEstimation.compute (*vfhFeatures);
-        *vfhFeature = *vfhFeatures;
-        // pcl::visualization::PCLHistogramVisualizer viewerHistogram = createHistogramVisualizer(vfhFeature);
-        // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
-
-        // Display and retrieve the shape context descriptor vector for the 0th point.
-        // pcl::VFHSignature308 descriptor = vfhFeatures->points[0];
-        // VFHEstimationType::PointCloudOut::PointType descriptor2 = vfhFeatures->points[0];
-        // std::cout << descriptor << std::endl;
-
-        // save histogram VFH of clustered object
-        // std::stringstream ss;
-        // ss << "src/object_recognition_pkg/output/vfh/vfh_" << i << ".pcd";
-        // writer.write<pcl::VFHSignature308> (ss.str (), *vfhFeatures, false); //*
-        // i++;
-
-        //push to vector 
-        std::vector<float> VFHValue(
-            vfhFeatures->points[0].histogram,
-            vfhFeatures->points[0].histogram + 308 
-        );
-
-        it.first.histogram = VFHValue;
-        it.first.vfhFeature = vfhFeatures;
-        dataAddVFH.push_back(it);
-
-
-        // viewerHistogram.updateFeatureHistogram(*vfhFeatures, 308);
-        
-        // viewerHistogram.spinOnce();    // std::cout << 
-        // std::cout << it.first.histogram.size() << " -";
-    }
-    // std::cout << std::endl;
-    // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
-
-    /******************** descriptoring-end ****************************/ 
-
-
-
-
-    /******************** feature-matching-start ****************************/ 
-    // ARTIFICIAL NEURAL NETOWRK
-    std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
-    fann_type *calc_out;
-    fann_type input[308]; //length of VFH Descriptor
-    for(auto it : dataAddVFH)
-    {
-        std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
-
-        calc_out = fann_run(ann, input);
-
-        //find max score 
-        int maxIndex = 0, maxValue = 0;
-        for(int i = 0 ; i < ann->num_output ; i++)
-        {
-            // std::cout << calc_out[i]  << " " ;//<< std::endl;
-            //  std::cout << (calc_out[i] * 100) << " % " 
-            //     << "   " << listDataSet[i] 
-            //     << std::endl;
-
-            if(calc_out[i] > maxValue){
-                maxIndex = i;
-            }
-
-        }
-        std::cout << "max : " << calc_out[maxIndex] * 100 << "% " << listDataSet[maxIndex] << std::endl;
-        it.first.category = listDataSet[maxIndex];
-        it.first.score = calc_out[maxIndex]*100.0;
-        dataCompleted.push_back(it);
-        
-    }
-    // std::cout << std::endl;
-    fann_destroy(ann);
-
-    /******************** feature-matching-end ****************************/ 
+    /******************** segmentation-end ****************************/
 
 }
 
@@ -391,6 +239,8 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
 
     subMain();
     
+    pcl::toROSMsg(*acquiredCloud, *cloudMsg);
+    pclpub.publish(cloudMsg);
 
     viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
     if(save_cloud_ == true){
@@ -417,8 +267,10 @@ void imageAcquirerReceive(const sensor_msgs::ImageConstPtr& msg){
 
 
 int main(int argc, char **argv) {
-	ros::init(argc, argv, "ROSpclVisualizer");
+	ros::init(argc, argv, "ROSpclPreprocessing");
 	ros::NodeHandle nh;
+    // ros::Publisher 
+    pclpub = nh.advertise<sensor_msgs::PointCloud2>("/RSpclPreprocessing", 1);
 
     // READ label/class trainned (dataset)
     std::ifstream listDataSetFile("listDataSetv2.1.txt");

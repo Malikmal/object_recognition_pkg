@@ -381,3 +381,40 @@ target_link_libraries(main_camera
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS}
 )
+
+
+# camera_node node
+add_executable(camera_node src/camera_node.cpp)
+target_link_libraries(camera_node 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)
+
+
+
+# preprocesing_node node
+add_executable(preprocesing_node src/preprocesing_node.cpp)
+target_link_libraries(preprocesing_node 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)

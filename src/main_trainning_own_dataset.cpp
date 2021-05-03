@@ -263,47 +263,50 @@ void LoadModels (const boost::filesystem::path &base_dir, const std::string &ext
       std::cout << dataInfo.no << ". reading " << dataInfo.category << " file : "<< dataInfo.filename << std::endl;
 
       /** visualize each model
-      // pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-      // // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
-
-      // int v1(0);
-      // viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
-      // viewer->setBackgroundColor (0, 0, 0, v1);
-      // viewer->addText("original", 10, 10, "v1 text", v1);
-      // pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud(cloud);
-      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, rgb_cloud, "original", v1);
       **/
+      pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
+
+      int v1(0);
+      viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+      viewer->setBackgroundColor (0, 0, 0, v1);
+      viewer->addText("original", 10, 10, "v1 text", v1);
+      pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud(cloud);
+      viewer->addPointCloud<pcl::PointXYZRGB> (cloud, rgb_cloud, "original", v1);
 
       filtering(cloud, cloud_filtered);
       // viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, "sample cloud");
 
       /** visualize each model after segmentation
-      // int v2(0);
-      // viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-      // viewer->setBackgroundColor (0, 0, 0, v2);
-      // viewer->addText("filtered and segmented", 10, 10, "v2 text", v2);
-      // pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud_filtered(cloud_filtered);
-      // viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, rgb_cloud_filtered, "filtered and segmented", v2);
-
-      // pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-
-      // viewer->addCoordinateSystem (1.0);
-
-      // descriptoring(cloud_filtered, vfhFeatures);
-
-	    // pcl::visualization::PCLHistogramVisualizer viewerHistogram;
-      // viewerHistogram.addFeatureHistogram(*vfhFeatures, 308);
-
-
-      // viewerHistogram.spin();
-
-
-      // while(!viewer->wasStopped())
-      // {
-      //   viewer->spinOnce (100);
-      //   // std::this_thread::sleep_for(100ms);
-      // }
       **/
+      int v2(0);
+      viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+      viewer->setBackgroundColor (0, 0, 0, v2);
+      viewer->addText("filtered and segmented", 10, 10, "v2 text", v2);
+      pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud_filtered(cloud_filtered);
+      viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, rgb_cloud_filtered, "filtered and segmented", v2);
+
+      pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
+
+      pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures1(new pcl::PointCloud<pcl::VFHSignature308>);
+
+      viewer->addCoordinateSystem (1.0);
+
+      descriptoring(cloud_filtered, vfhFeatures);
+
+	    pcl::visualization::PCLHistogramVisualizer viewerHistogram;
+      viewerHistogram.addFeatureHistogram(*vfhFeatures1, 308);
+      // viewerHistogram.updateFeatureHistogram(*vfhFeatures, 308);
+
+
+      viewerHistogram.spinOnce();
+
+
+      while(!viewer->wasStopped())
+      {
+        viewer->spinOnce (100);
+        // std::this_thread::sleep_for(100ms);
+      }
       
 
     } 
@@ -335,11 +338,6 @@ int main (int argc, char** argv)
     MyFileData.close();
 
     
-
-
-
-
-
     //  // ARTIFICIAL NEURAL NETOWRK
     // fann_type *calc_out;
     // const unsigned int num_input = 308;

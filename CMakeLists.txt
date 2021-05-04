@@ -98,12 +98,12 @@ find_package(catkin REQUIRED)
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
+# catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES object_detection_recognition
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
-)
+# )
 
 ###########
 ## Build ##
@@ -214,6 +214,28 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   std_msgs
+  message_generation
+  actionlib
+  actionlib_msgs
+)
+
+
+add_message_files(
+  FILES
+  trackbar.msg
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  actionlib_msgs
+)
+
+catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES my_pkg
+   CATKIN_DEPENDS roscpp std_msgs message_runtime 
+#  DEPENDS system_lib
 )
 
 
@@ -418,3 +440,24 @@ target_link_libraries(preprocesing_node
     ${PCL_LIBRARIES}
     ${OpenCV_LIBS}
 )
+add_dependencies(preprocesing_node object_recognition_pkg_generate_messages_cpp)
+
+
+
+# trackbar_node node
+add_executable(trackbar_node src/trackbar_node.cpp)
+target_link_libraries(trackbar_node 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)
+add_dependencies(trackbar_node object_recognition_pkg_generate_messages_cpp)

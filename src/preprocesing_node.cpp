@@ -27,6 +27,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/crop_box.h>
+#include <pcl/filters/conditional_removal.h>
 #include <pcl/features/vfh.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
@@ -54,6 +56,8 @@
 #include <pcl/common/common.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
+
+#include "object_recognition_pkg/trackbar.h"
 
 using namespace std;
 
@@ -89,6 +93,7 @@ sensor_msgs::PointCloud2Ptr cloudMsg(new sensor_msgs::PointCloud2());
 // ros::init();
 // ros::NodeHandle nh ;//(new ros::NodeHandle());
 // ros::Publisher pclpub;// = nh.advertise<sensor_msgs::PointCloud2>("/RSpclPreprocessing", 1);
+object_recognition_pkg::trackbar trackbarVal;
 
 
 inline float PackRGB(uint8_t r, uint8_t g, uint8_t b) {
@@ -103,14 +108,26 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
   }
 }
 
-std::shared_ptr<pcl::visualization::PCLVisualizer> createXYZRGBVisualizer(pclXYZRGBptr cloud) {
+std::shared_ptr<pcl::visualization::PCLVisualizer> createXYZRGBVisualizer(pclXYZRGBptr cloud, pclXYZRGBptr cloud_f) {
 	std::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("PCL RS 3D Viewer"));
-	viewer->setBackgroundColor(0.12, 0.12, 0.12);
+
+
+    int v1(0);
+    viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer->setBackgroundColor(0.12, 0.12, 0.12, v1);
 	pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(cloud);
-	viewer->addPointCloud<pcl::PointXYZRGB>(cloud, rgb);
-	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5);
+	viewer->addPointCloud<pcl::PointXYZRGB>(cloud, rgb, "original", v1);
+	// viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, v1);
+
+    int v2(0);
+    viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+	viewer->setBackgroundColor(0.12, 0.12, 0.12, v2);
+	pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_f(cloud_f);
+	viewer->addPointCloud<pcl::PointXYZRGB>(cloud_f, rgb_f, "output", v2);
+	// viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, v2);
+
+	// viewer->initCameraParameters();
 	viewer->addCoordinateSystem(1.0);
-	viewer->initCameraParameters();
 	return (viewer);
 }
 
@@ -131,6 +148,25 @@ void imageShow(const cv::Mat image){
 
 
 
+void ConditionalRemovalFieldPOS(pclXYZRGBptr input, pclXYZRGBptr output, Eigen::Vector4f mindis, Eigen::Vector4f maxdis){
+  
+  pcl::ConditionAnd<XYZRGB>::Ptr ca (new pcl::ConditionAnd<XYZRGB>());
+  //Set Positive
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::GT, mindis(0))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::LT, maxdis(0))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::GT, mindis(1))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::LT, maxdis(1))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::GT, mindis(2))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::LT, maxdis(2))));
+
+  pcl::ConditionalRemoval<XYZRGB> cr;
+  cr.setCondition (ca);
+  cr.setInputCloud (input);
+  cr.filter (*output);
+}
+
+
+
 void subMain()
 {
 
@@ -141,19 +177,33 @@ void subMain()
     std::vector<int> mapping;
     pcl::removeNaNFromPointCloud(*acquiredCloud, *acquiredCloud, mapping);
 
-    // Filter object crop by z coordinate
-    pcl::PassThrough<pcl::PointXYZRGB> pass;
-    pass.setInputCloud (acquiredCloud);
-    pass.setFilterFieldName ("z");
-    pass.setFilterLimits (0.0, 2.0);
-    //pass.setFilterLimitsNegative (true);
-    pass.filter (*acquiredCloud);
-    // std::cerr << "Pointcloud after cropped : " << cloud->size() << " data points." << std::endl;
+    // // Filter object crop by z coordinate
+    // pcl::PassThrough<pcl::PointXYZRGB> pass;
+    // pass.setInputCloud (acquiredCloud);
+    // pass.setFilterFieldName ("z");
+    // pass.setFilterLimits (0.0, 2.0);
+    // //pass.setFilterLimitsNegative (true);
+    // pass.filter (*acquiredCloud);
+    // // std::cerr << "Pointcloud after cropped : " << cloud->size() << " data points." << std::endl;
+
+    //filter by condifional removal (cropping)
+    ConditionalRemovalFieldPOS(
+        acquiredCloud,
+        acquiredCloud,
+        Eigen::Vector4f((trackbarVal.minX ? trackbarVal.minX : 0 ),(trackbarVal.minY ? trackbarVal.minY : 0 ),(trackbarVal.minZ ? trackbarVal.minZ : 0 ), 1.0f), 
+        Eigen::Vector4f((trackbarVal.maxX ? trackbarVal.maxX : 1 ),(trackbarVal.maxY ? trackbarVal.maxY : 1 ),(trackbarVal.maxZ ? trackbarVal.maxZ : 1 ), 1.0f)
+    );
+    
 
     // Filter downsample the dataset using a leaf size of 1cm
     pcl::VoxelGrid<pcl::PointXYZRGB> vg;
     vg.setInputCloud (acquiredCloud);
-    vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
+    // vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
+    vg.setLeafSize (
+        ( trackbarVal.leaf_vox_gridX ? trackbarVal.leaf_vox_gridX  : 0.005f),
+        ( trackbarVal.leaf_vox_gridY ? trackbarVal.leaf_vox_gridY  : 0.005f), 
+        ( trackbarVal.leaf_vox_gridZ ? trackbarVal.leaf_vox_gridZ  : 0.005f)
+    ); // 0.5cm
     vg.filter (*acquiredCloud);
     // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
 
@@ -171,8 +221,8 @@ void subMain()
     seg.setOptimizeCoefficients (true);
     seg.setModelType (pcl::SACMODEL_PLANE);
     seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations (100);
-    seg.setDistanceThreshold (0.01);
+    seg.setMaxIterations (trackbarVal.seg_max_iteration ? trackbarVal.seg_max_iteration : 100);
+    seg.setDistanceThreshold (trackbarVal.seg_dist_thresh ? trackbarVal.seg_dist_thresh : 0.01);
 
 
     int i=0;
@@ -208,34 +258,38 @@ void subMain()
 
 }
 
-std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualizer(acquiredCloud);
+std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualizer(acquiredCloud, acquiredCloud);
 // pcl::visualization::PCLHistogramVisualizer viewerHistogram = createHistogramVisualizer(vfhFeature);
 
 
 void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
 	pcl::fromROSMsg(*cloudInMsg, *acquiredCloud);
+
+
     int i = 640, j = 480, k;
 
     for (auto& it : acquiredCloud->points){
-            it.x = it.x;
-            it.y = it.y;
-            it.z = it.z;
-            it.rgb = PackRGB(
-                acquiredImageRotate.at<cv::Vec3b>(j,i)[2],  //r
-                acquiredImageRotate.at<cv::Vec3b>(j,i)[1], // g
-                acquiredImageRotate.at<cv::Vec3b>(j,i)[0]  //b
-            ); //acquiredImage explode
-            i--;
-            if(i <= 0)
-            {
-                i=640;
-                j--;
-            }
-            if(j < 0)
-            {
-                break;
-            }
+        it.x = it.x;
+        it.y = it.y;
+        it.z = it.z;
+        it.rgb = PackRGB(
+            acquiredImageRotate.at<cv::Vec3b>(j,i)[2],  //r
+            acquiredImageRotate.at<cv::Vec3b>(j,i)[1], // g
+            acquiredImageRotate.at<cv::Vec3b>(j,i)[0]  //b
+        ); //acquiredImage explode
+        i--;
+        if(i <= 0)
+        {
+            i=640;
+            j--;
         }
+        if(j < 0)
+        {
+            break;
+        }
+    }
+
+	viewer->updatePointCloud(acquiredCloud, "original");
 
     subMain();
     
@@ -251,7 +305,7 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
         counter_++; 
     }
 
-	viewer->updatePointCloud(acquiredCloud);
+	viewer->updatePointCloud(acquiredCloud, "output");
     // viewerHistogram.updateFeatureHistogram(*vfhFeature, 308);
 
 	viewer->spinOnce();
@@ -260,11 +314,22 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
 }
 
 void imageAcquirerReceive(const sensor_msgs::ImageConstPtr& msg){
-	acquiredImage = cv::Mat(cv_bridge::toCvShare(msg, "bgr8")->image);
+	acquiredImage = cv::Mat(cv_bridge::toCvShare(msg, "bgr8")->image); 
   cv::rotate(acquiredImage, acquiredImageRotate, cv::ROTATE_180);
 	imageShow(acquiredImage);
 }
 
+void chatterReceive(const object_recognition_pkg::trackbar::ConstPtr& msg)
+{
+
+    trackbarVal.minX = msg->minX;
+    trackbarVal.maxX = msg->maxX;
+    trackbarVal.minY = msg->minY;
+    trackbarVal.maxY = msg->maxY;
+    trackbarVal.minZ = msg->minZ;
+    trackbarVal.maxZ = msg->maxZ;
+    
+}
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "ROSpclPreprocessing");
@@ -288,6 +353,7 @@ int main(int argc, char **argv) {
 	cv::namedWindow("OCV RS 2D Viewer", cv::WINDOW_AUTOSIZE);
 	// cv::startWindowThread();
 
+    ros::Subscriber chatter = nh.subscribe("/chatter", 1, chatterReceive);
 	image_transport::Subscriber sub = it.subscribe("/RSimgAcquisition", 1, imageAcquirerReceive);
     ros::Subscriber pclsubAcquirer = nh.subscribe("/RSpclAcquisition", 1, cloudAcquirerReceive);
 

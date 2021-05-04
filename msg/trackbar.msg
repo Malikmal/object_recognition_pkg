@@ -1,0 +1,11 @@
+float64 minX
+float32 maxX
+float32 minY
+float32 maxY
+float32 minZ
+float32 maxZ 
+float32 leaf_vox_gridX
+float32 leaf_vox_gridY
+float32 leaf_vox_gridZ
+int32 seg_max_iteration
+float32 seg_dist_thresh

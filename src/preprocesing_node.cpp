@@ -115,6 +115,7 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> createXYZRGBVisualizer(pclXYZ
     int v1(0);
     viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0.12, 0.12, 0.12, v1);
+    viewer->addText("original", 10, 10, "v1 text", v1);
 	pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb(cloud);
 	viewer->addPointCloud<pcl::PointXYZRGB>(cloud, rgb, "original", v1);
 	// viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, v1);
@@ -122,11 +123,12 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> createXYZRGBVisualizer(pclXYZ
     int v2(0);
     viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 	viewer->setBackgroundColor(0.12, 0.12, 0.12, v2);
+    viewer->addText("output", 10, 10, "v2 text", v2);
 	pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_f(cloud_f);
 	viewer->addPointCloud<pcl::PointXYZRGB>(cloud_f, rgb_f, "output", v2);
 	// viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.5, v2);
 
-	// viewer->initCameraParameters();
+	viewer->initCameraParameters();
 	viewer->addCoordinateSystem(1.0);
 	return (viewer);
 }
@@ -148,16 +150,16 @@ void imageShow(const cv::Mat image){
 
 
 
-void ConditionalRemovalFieldPOS(pclXYZRGBptr input, pclXYZRGBptr output, Eigen::Vector4f mindis, Eigen::Vector4f maxdis){
-  
+void ConditionalRemovalFieldPOS(pclXYZRGBptr input, pclXYZRGBptr output)//, Eigen::Vector4f mindis, Eigen::Vector4f maxdis)
+{
   pcl::ConditionAnd<XYZRGB>::Ptr ca (new pcl::ConditionAnd<XYZRGB>());
   //Set Positive
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::GT, mindis(0))));
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::LT, maxdis(0))));
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::GT, mindis(1))));
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::LT, maxdis(1))));
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::GT, mindis(2))));
-  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::LT, maxdis(2))));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::GT, trackbarVal.minX)));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("x", pcl::ComparisonOps::LT, trackbarVal.maxX)));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::GT, trackbarVal.minY)));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("y", pcl::ComparisonOps::LT, trackbarVal.maxY)));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::GT, trackbarVal.minZ)));
+  ca->addComparison(pcl::FieldComparison<XYZRGB>::ConstPtr (new pcl::FieldComparison<XYZRGB>("z", pcl::ComparisonOps::LT, trackbarVal.maxZ)));
 
   pcl::ConditionalRemoval<XYZRGB> cr;
   cr.setCondition (ca);
@@ -189,28 +191,27 @@ void subMain()
     //filter by condifional removal (cropping)
     ConditionalRemovalFieldPOS(
         acquiredCloud,
-        acquiredCloud,
-        Eigen::Vector4f((trackbarVal.minX ? trackbarVal.minX : 0 ),(trackbarVal.minY ? trackbarVal.minY : 0 ),(trackbarVal.minZ ? trackbarVal.minZ : 0 ), 1.0f), 
-        Eigen::Vector4f((trackbarVal.maxX ? trackbarVal.maxX : 1 ),(trackbarVal.maxY ? trackbarVal.maxY : 1 ),(trackbarVal.maxZ ? trackbarVal.maxZ : 1 ), 1.0f)
+        acquiredCloud
+        // Eigen::Vector4f(trackbarVal.minX, trackbarVal.minY, trackbarVal.minZ, 1.0f), 
+        // Eigen::Vector4f(trackbarVal.maxX,trackbarVal.maxY,trackbarVal.maxZ, 1.0f)
     );
     
 
-    // Filter downsample the dataset using a leaf size of 1cm
-    pcl::VoxelGrid<pcl::PointXYZRGB> vg;
-    vg.setInputCloud (acquiredCloud);
-    // vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
-    vg.setLeafSize (
-        ( trackbarVal.leaf_vox_gridX ? trackbarVal.leaf_vox_gridX  : 0.005f),
-        ( trackbarVal.leaf_vox_gridY ? trackbarVal.leaf_vox_gridY  : 0.005f), 
-        ( trackbarVal.leaf_vox_gridZ ? trackbarVal.leaf_vox_gridZ  : 0.005f)
-    ); // 0.5cm
-    vg.filter (*acquiredCloud);
-    // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
+    // // Filter downsample the dataset using a leaf size of 1cm
+    // pcl::VoxelGrid<pcl::PointXYZRGB> vg;
+    // vg.setInputCloud (acquiredCloud);
+    // // vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
+    // vg.setLeafSize (
+    //     trackbarVal.leaf_vox_gridX,
+    //     trackbarVal.leaf_vox_gridY, 
+    //     trackbarVal.leaf_vox_gridZ
+    // ); // 0.5cm
+    // vg.filter (*acquiredCloud);
 
     /******************** filterinig-end ****************************/ 
     
 
-    /******************** segmentation-end ****************************/ 
+    // /******************** segmentation-end ****************************/ 
 
     // Create the segmentation object for the planar model and set all the parameters
     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
@@ -221,8 +222,8 @@ void subMain()
     seg.setOptimizeCoefficients (true);
     seg.setModelType (pcl::SACMODEL_PLANE);
     seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations (trackbarVal.seg_max_iteration ? trackbarVal.seg_max_iteration : 100);
-    seg.setDistanceThreshold (trackbarVal.seg_dist_thresh ? trackbarVal.seg_dist_thresh : 0.01);
+    seg.setMaxIterations ( trackbarVal.seg_max_iteration); //100
+    seg.setDistanceThreshold ( trackbarVal.seg_dist_thresh); //0.01f
 
 
     int i=0;
@@ -254,7 +255,7 @@ void subMain()
 
         i++;
     }    
-    /******************** segmentation-end ****************************/
+    // /******************** segmentation-end ****************************/
 
 }
 
@@ -328,6 +329,14 @@ void chatterReceive(const object_recognition_pkg::trackbar::ConstPtr& msg)
     trackbarVal.maxY = msg->maxY;
     trackbarVal.minZ = msg->minZ;
     trackbarVal.maxZ = msg->maxZ;
+    
+    trackbarVal.leaf_vox_gridX = msg->leaf_vox_gridX;
+    trackbarVal.leaf_vox_gridY = msg->leaf_vox_gridY;
+    trackbarVal.leaf_vox_gridZ = msg->leaf_vox_gridZ;
+    
+    trackbarVal.seg_max_iteration = msg->seg_max_iteration;
+    trackbarVal.seg_dist_thresh = msg->seg_dist_thresh;
+    
     
 }
 

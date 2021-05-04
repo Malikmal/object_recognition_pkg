@@ -9,17 +9,17 @@
 #include "object_recognition_pkg/trackbar.h"
 
 int param[6] = {0};
-int Xmin = 0; 
+int Xmin = 100; 
 int Xmax = 100;
-int Ymin = 0;
+int Ymin = 100;
 int Ymax = 100;
-int Zmin = 0;
+int Zmin = 100;
 int Zmax = 100;
 int vox_grid_X = 5; //default on subcriber 0.005f
 int vox_grid_Y = 5; //default on subcriber 0.005f
 int vox_grid_Z = 5; //default on subcriber 0.005f
 int seg_max_iteration = 100; //default on subcriber 100
-int seg_dist_thresh = 1; //default on subcriber 0.01
+int seg_dist_thresh = 10; //default on subcriber 0.01
 object_recognition_pkg::trackbar trackbarVal;
 
 std_msgs::String::Ptr msg(new std_msgs::String());
@@ -58,17 +58,17 @@ int main(int argc, char **argv)
     }
     cv::namedWindow("My Window", 1);
 
-    cv::createTrackbar("Xmin: ", "My Window", &Xmin, 100);
-    cv::createTrackbar("Xmax: ", "My Window", &Xmax, 100);
-    cv::createTrackbar("Ymin: ", "My Window", &Ymin, 100);
-    cv::createTrackbar("Ymax: ", "My Window", &Ymax, 100);
-    cv::createTrackbar("Zmin: ", "My Window", &Zmin, 100);
-    cv::createTrackbar("Zmax: ", "My Window", &Zmax, 100);
-    cv::createTrackbar("vox_grid_X: ", "My Window", &vox_grid_X, 100);
-    cv::createTrackbar("vox_grid_Y: ", "My Window", &vox_grid_Y, 100);
-    cv::createTrackbar("vox_grid_Z: ", "My Window", &vox_grid_Z, 100);
-    cv::createTrackbar("seg_max_it: ", "My Window", &seg_max_iteration, 100);
-    cv::createTrackbar("seg_dist_th: ", "My Window", &seg_dist_thresh, 100);
+    cv::createTrackbar("-Xmin/100: ", "My Window", &Xmin, 100);
+    cv::createTrackbar("Xmax/100: ", "My Window", &Xmax, 100);
+    cv::createTrackbar("-Ymin/100: ", "My Window", &Ymin, 100);
+    cv::createTrackbar("Ymax/100: ", "My Window", &Ymax, 100);
+    cv::createTrackbar("-Zmin/100: ", "My Window", &Zmin, 100);
+    cv::createTrackbar("Zmax/100: ", "My Window", &Zmax, 100);
+    cv::createTrackbar("vox_grid_X/1000: ", "My Window", &vox_grid_X, 100);
+    cv::createTrackbar("vox_grid_Y/1000: ", "My Window", &vox_grid_Y, 100);
+    cv::createTrackbar("vox_grid_Z/1000: ", "My Window", &vox_grid_Z, 100);
+    cv::createTrackbar("seg_max_it/1: ", "My Window", &seg_max_iteration, 100);
+    cv::createTrackbar("seg_dist_th/1000: ", "My Window", &seg_dist_thresh, 1000);
     
 
     while (true)
@@ -89,17 +89,17 @@ int main(int argc, char **argv)
         // trackbarMsg.zmax = (float)(Zmax/100);
 
         object_recognition_pkg::trackbar trackbarMsg;
-        trackbarMsg.minX = (float)Xmin/(float)100;
+        trackbarMsg.minX = -(float)Xmin/(float)100;
         trackbarMsg.maxX = (float)Xmax/(float)100;
-        trackbarMsg.minY = (float)Ymin/(float)100;
+        trackbarMsg.minY = -(float)Ymin/(float)100;
         trackbarMsg.maxY = (float)Ymax/(float)100;
-        trackbarMsg.minZ = (float)Zmin/(float)100;
+        trackbarMsg.minZ = -(float)Zmin/(float)100;
         trackbarMsg.maxZ = (float)Zmax/(float)100;
         trackbarMsg.leaf_vox_gridZ = (float)vox_grid_X/(float)1000;
         trackbarMsg.leaf_vox_gridZ = (float)vox_grid_Y/(float)1000;
         trackbarMsg.leaf_vox_gridZ = (float)vox_grid_Z/(float)1000;
         trackbarMsg.seg_max_iteration = seg_max_iteration;
-        trackbarMsg.seg_dist_thresh = (float)seg_dist_thresh/(float)100;
+        trackbarMsg.seg_dist_thresh = (float)seg_dist_thresh/(float)1000;
         
 
 

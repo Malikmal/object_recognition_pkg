@@ -9,7 +9,7 @@
 #include "fann.h"
 #include "floatfann.h"
 #include "fann_data.h"
-#include "parallel_fann.h"
+// #include "parallel_fann.h"
 
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>

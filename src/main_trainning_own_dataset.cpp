@@ -16,7 +16,7 @@
 #include "fann.h"
 #include "floatfann.h"
 #include "fann_data.h"
-#include "parallel_fann.h"
+// #include "parallel_fann.h"
 
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
@@ -47,7 +47,9 @@ struct info{
 } ;
 
 typedef std::pair<info, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> modelRaw;
+typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
 
+   
 
 //  fann_callback_type callbackTrainning(fann_train_data ann)
 int FANN_API callbackTrainning(
@@ -174,7 +176,7 @@ void descriptoring(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered, pcl::
     // MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
     
     pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
-    typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
+    // typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
     VFHEstimationType vfhEstimation;
 
     // std::cout << it.size() << std::endl;
@@ -185,12 +187,12 @@ void descriptoring(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered, pcl::
     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
     normalEstimation.setSearchMethod (tree);
 
-    normalEstimation.setRadiusSearch (0.03);
+    normalEstimation.setRadiusSearch (0.01); //0.03
 
     pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
     normalEstimation.compute (*cloudWithNormals);
 
-    // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
+    std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
     
     // Setup the feature computation
 
@@ -203,11 +205,13 @@ void descriptoring(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered, pcl::
     // Use the same KdTree from the normal estimation
     vfhEstimation.setSearchMethod (tree);
 
-    //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
+    // vfhEstimation.setRadiusSearch (0.2); //nothing effect // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
 
     // Actually compute the VFH features
-    // pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-    vfhEstimation.compute (*vfhFeatures);
+    pcl::PointCloud<pcl::VFHSignature308>::Ptr tmpVfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
+    vfhEstimation.compute (*tmpVfhFeatures);
+
+    *vfhFeatures = *tmpVfhFeatures;
 
     // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
@@ -223,7 +227,14 @@ void descriptoring(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &cloud_filtered, pcl::
     // std::vector<float> VFHValues;
     // float vfh[308] = vfhFeatures->points[0].histogram;
 
-    std::cout  << " vfh calculated : " << vfhFeatures->size() << std::endl;// << VFHValue.size();
+    std::cout  << " vfh calculated : "  << std::endl;// << VFHValue.size();
+     for(auto it2 : vfhFeatures->points[0].histogram)
+      {
+          std::cout << it2 << " " ;
+          // VFHValue.push_back(it2);
+          // MyFile << it2 << " " ;
+      }
+    std::cout  << " end of vfh calculated : "  << std::endl;
   // std::cout << it.first.no << ". VFH calculated " << it.first.category << " of file : "<< it.first.filename << std::endl;
 }
 
@@ -263,7 +274,6 @@ void LoadModels (const boost::filesystem::path &base_dir, const std::string &ext
       std::cout << dataInfo.no << ". reading " << dataInfo.category << " file : "<< dataInfo.filename << std::endl;
 
       /** visualize each model
-      **/
       pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
       // viewer->addPointCloud<pcl::PointXYZRGB> (cloud, "sample cloud");
 
@@ -273,12 +283,12 @@ void LoadModels (const boost::filesystem::path &base_dir, const std::string &ext
       viewer->addText("original", 10, 10, "v1 text", v1);
       pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud(cloud);
       viewer->addPointCloud<pcl::PointXYZRGB> (cloud, rgb_cloud, "original", v1);
+      **/
 
       filtering(cloud, cloud_filtered);
       // viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, "sample cloud");
 
       /** visualize each model after segmentation
-      **/
       int v2(0);
       viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
       viewer->setBackgroundColor (0, 0, 0, v2);
@@ -286,27 +296,28 @@ void LoadModels (const boost::filesystem::path &base_dir, const std::string &ext
       pcl::visualization::PointCloudColorHandlerRGBField<pcl::PointXYZRGB> rgb_cloud_filtered(cloud_filtered);
       viewer->addPointCloud<pcl::PointXYZRGB> (cloud_filtered, rgb_cloud_filtered, "filtered and segmented", v2);
 
-      pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-
       pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures1(new pcl::PointCloud<pcl::VFHSignature308>);
 
       viewer->addCoordinateSystem (1.0);
 
-      descriptoring(cloud_filtered, vfhFeatures);
 
-	    pcl::visualization::PCLHistogramVisualizer viewerHistogram;
-      viewerHistogram.addFeatureHistogram(*vfhFeatures1, 308);
-      // viewerHistogram.updateFeatureHistogram(*vfhFeatures, 308);
+	    // pcl::visualization::PCLHistogramVisualizer viewerHistogram;
+      // viewerHistogram.addFeatureHistogram(*vfhFeatures1, 308);
+      // // viewerHistogram.updateFeatureHistogram(*vfhFeatures, 308);
 
-
-      viewerHistogram.spinOnce();
-
+      // viewerHistogram.spinOnce();
 
       while(!viewer->wasStopped())
       {
         viewer->spinOnce (100);
         // std::this_thread::sleep_for(100ms);
       }
+      **/
+
+      pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
+      descriptoring(cloud_filtered, vfhFeatures);
+std::cout  << " vfh calculated ted : " << vfhFeatures->size() << std::endl;// << VFHValue.size();
+
       
 
     } 

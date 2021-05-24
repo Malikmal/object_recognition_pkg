@@ -190,6 +190,7 @@ main (int argc, char** argv)
     std::cerr << "Pointcloud after cropped : " << cloud_passthrough->size() << " data points." << std::endl;
     //save passthrough filter
     pcl::io::savePCDFile("src/object_recognition_pkg/output/filter/cropping.pcd", *cloud_passthrough);
+    // pcl::io::savePCDFile("src/object_recognition_pkg/output/blabla/cropping.pcd", *cloud_passthrough);
 
 
     // Filter downsample the dataset using a leaf size of 1cm

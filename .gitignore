@@ -4,3 +4,4 @@ output/segmentation/
 output/vfh/*
 
 output/output.zip
+data/segmented

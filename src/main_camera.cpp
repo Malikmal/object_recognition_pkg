@@ -136,7 +136,7 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualiz
 
 void subMain()
 {
-    /******************** remove cube in visualizer if exis ****************************/ 
+    /******************** remove cube, text, and colorized clustered cloud in visualizer if exis ****************************/ 
     if(cubeIds.size())
     {
         for (auto it: cubeIds)
@@ -165,7 +165,7 @@ void subMain()
         }
         pcdClusteredIds.clear();
     }
-    /******************** remove cube in visualizer if exis-end ****************************/ 
+    /******************** remove cube, text, and colorized clustered cloud in visualizer if exis-end ****************************/ 
     
 
     std::vector<modelsDetail> objectData; 

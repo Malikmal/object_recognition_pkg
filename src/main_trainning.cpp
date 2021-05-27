@@ -98,7 +98,7 @@ int FANN_API callbackTrainning(
     unsigned int epochs
 )
 {
-    ofstream MyFileData("newDatasetv3.0_error.txt", ios::app);
+    ofstream MyFileData("newDatasetv3.1_error.txt", ios::app);
     MyFileData << epochs << ", " 
                << fann_get_MSE(ann) << ", " 
                << desired_error << ", "
@@ -120,7 +120,7 @@ int main (int argc, char** argv)
 
     std::cout << "file readed : " << models.size() << std::endl;
 
-    ofstream MyFileData("newDatasetv3.0.txt");
+    ofstream MyFileData("newDatasetv3.1.txt");
     int no  = 0;
     std::vector<int> category;
     for(auto it : models)
@@ -135,8 +135,7 @@ int main (int argc, char** argv)
     MyFileData.close();
 
 
-
-    // ///// FILTER AND SEGMENTATION
+    // // ///// FILTER AND SEGMENTATION
     std::vector<modelRaw> modelsSegmented;
     pcl::PCDWriter writer;
     for(auto it : models)
@@ -248,7 +247,7 @@ int main (int argc, char** argv)
         modelsSegmented.push_back(tmpModelSegmented);
     }
 
-
+  
 
 
 
@@ -257,7 +256,7 @@ int main (int argc, char** argv)
     std::vector<std::vector<float> > VFHValues;
 
     //write file for data trainninng FANN librray format
-    ofstream MyFile("newDatasetv3.0.data");
+    ofstream MyFile("newDatasetv3.1.data");
     MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
     
     pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
@@ -265,7 +264,7 @@ int main (int argc, char** argv)
     VFHEstimationType vfhEstimation;
 
     // for(std::size_t i = 0; i < models.size(); ++i )
-    for(auto it : modelsSegmented)
+    for(auto it : models)//modelsSegmented)
     {
 
         // std::cout << it.size() << std::endl;
@@ -367,11 +366,11 @@ int main (int argc, char** argv)
 
     printf("Creating network.\n");
     // ann = fann_create_standard(num_layers, num_input, num_neurons_hidden, num_output);
-    ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv3.0
+    ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv3.1
     // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // ccccccc
 
 
-    data = fann_read_train_from_file("newDatasetv3.0.data");
+    data = fann_read_train_from_file("newDatasetv3.1.data");
 
     fann_set_activation_steepness_hidden(ann, 0.01); //deafault 0.5 //bbbbbb = 0.01
     fann_set_activation_steepness_output(ann, 0.01); //deafault 0.5
@@ -426,10 +425,10 @@ int main (int argc, char** argv)
 
     printf("Saving network.\n");
 
-    fann_save(ann, "newDatasetv3.0.net");
+    fann_save(ann, "newDatasetv3.1.net");
 
-    decimal_point = fann_save_to_fixed(ann, "newDatasetv3.0_fixed.net");
-    fann_save_train_to_fixed(data, "newDatasetv3.0fixed.data", decimal_point);
+    decimal_point = fann_save_to_fixed(ann, "newDatasetv3.1_fixed.net");
+    fann_save_train_to_fixed(data, "newDatasetv3.1fixed.data", decimal_point);
 
     printf("Cleaning up.\n");
     fann_destroy_train(data);
@@ -488,7 +487,7 @@ int main (int argc, char** argv)
     // // print_fann_configuration(ann); //handmade   
 
 
-    // fann_train_on_file(ann, "newDatasetv3.0.data", max_epochs,
+    // fann_train_on_file(ann, "newDatasetv3.1.data", max_epochs,
     //     epochs_between_reports, desired_error);
 
 

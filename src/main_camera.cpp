@@ -76,6 +76,9 @@ typedef std::pair<info, pcl::PointCloud<pcl::PointXYZRGB>::Ptr> modelsDetail;
 bool save_cloud_ = false; //for capturing dataset
 int counter_ = 0; //for capturing dataset
 std::string pcd_filename_; //for capturing dataset
+std::vector<std::string> cubeIds;
+std::vector<std::string> textIds;
+std::vector<std::string> pcdClusteredIds;
 
 ros::Publisher pclpub;
 ros::Subscriber pclsub;
@@ -126,8 +129,44 @@ void imageShow(const cv::Mat image){
 	cv::waitKey(30);
 }
 
+
+std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualizer(acquiredCloud);
+// pcl::visualization::PCLHistogramVisualizer viewerHistogram = createHistogramVisualizer(vfhFeature);
+
+
 void subMain()
 {
+    /******************** remove cube in visualizer if exis ****************************/ 
+    if(cubeIds.size())
+    {
+        for (auto it: cubeIds)
+        {
+            /* code */
+            viewer->removeShape(it);
+        }
+        cubeIds.clear();
+    }
+
+    if(textIds.size())
+    {
+        for (auto it: textIds)
+        {
+            /* code */
+            viewer->removeText3D(it);
+        }
+        textIds.clear();
+    }
+
+    if(pcdClusteredIds.size())
+    {
+        for(auto it : pcdClusteredIds)
+        {
+            viewer->removePointCloud(it);
+        }
+        pcdClusteredIds.clear();
+    }
+    /******************** remove cube in visualizer if exis-end ****************************/ 
+    
 
     std::vector<modelsDetail> objectData; 
     /******************** filterinig-start ****************************/ 
@@ -268,7 +307,7 @@ void subMain()
         pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
         normalEstimation.setInputCloud (it.second);
         normalEstimation.setSearchMethod (tree);
-        normalEstimation.setRadiusSearch (0.03);
+        normalEstimation.setRadiusSearch (0.01);// (0.03); //newDatasetv3.0 up version user 0.01
         pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
         // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
@@ -324,7 +363,7 @@ void subMain()
     /******************** feature-matching-start ****************************/ 
     // ARTIFICIAL NEURAL NETOWRK
     std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
+    struct fann *ann = fann_create_from_file("newDatasetv3.0.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
     for(auto it : dataAddVFH)
@@ -358,10 +397,51 @@ void subMain()
 
     /******************** feature-matching-end ****************************/ 
 
-}
 
-std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualizer(acquiredCloud);
-// pcl::visualization::PCLHistogramVisualizer viewerHistogram = createHistogramVisualizer(vfhFeature);
+    /******************** Visualize bounding box ****************************/ 
+
+    //visualize
+    for(auto it:dataCompleted)
+    {
+        pcl::PointXYZRGB minPt, maxPt;
+        pcl::getMinMax3D (*it.second, minPt, maxPt);
+        // std::cout << "Min x: " << minPt.x << std::endl;
+        // std::cout << "Max x: " << maxPt.x << std::endl;
+        // std::cout << "Min y: " << minPt.y << std::endl;
+        // std::cout << "Max y: " << maxPt.y << std::endl;
+        // std::cout << "Min z: " << minPt.z << std::endl;
+        // std::cout << "Max z: " << maxPt.z << std::endl;
+        std::string bboxId = "BBOX" + std::to_string(rand() % 100);
+        std::string textId = "TEXT" + std::to_string(rand() % 100);
+        cubeIds.push_back(bboxId);
+        textIds.push_back(textId);
+        std::stringstream stream;
+        stream << std::fixed << std::setprecision(2) << it.first.score;
+        std::string textLabel = (it.first.category + " " + stream.str() + "%"); 
+        // std::cout << "bboxId : " << bboxId << std::endl;
+        viewer->addCube(minPt.x, maxPt.x,  minPt.y , maxPt.y,  minPt.z, maxPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
+        viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
+        // viewer->addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
+
+        viewer->addText3D(textLabel, pcl::PointXYZRGB(maxPt.x, maxPt.y, minPt.z), 0.01, 255.0, 1.0, 1.0,  textId);
+    }
+    /******************** Visualize bounding box-end ****************************/ 
+
+    /******************** Visualize add clustered color ****************************/     
+
+    if(dataCompleted.size())
+    {
+        for(auto it : dataCompleted)
+        {
+            std::string pcdClusteredId = "CLUSTER" + std::to_string(rand() % 100);
+            pcdClusteredIds.push_back(pcdClusteredId);
+
+            pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZRGB> color(it.second, 255, 0, 0);
+            viewer->addPointCloud<pcl::PointXYZRGB>(it.second, color, pcdClusteredId);
+        }
+    }
+    /******************** Visualize add clustered color-end ****************************/ 
+}
 
 
 void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
@@ -389,7 +469,13 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
             }
         }
 
+
+
+	viewer->updatePointCloud(acquiredCloud);
+
     subMain();
+    
+
     
 
     viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
@@ -401,7 +487,7 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
         counter_++; 
     }
 
-	viewer->updatePointCloud(acquiredCloud);
+	// viewer->updatePointCloud(acquiredCloud);
     // viewerHistogram.updateFeatureHistogram(*vfhFeature, 308);
 
 	viewer->spinOnce();
@@ -421,13 +507,14 @@ int main(int argc, char **argv) {
 	ros::NodeHandle nh;
 
     // READ label/class trainned (dataset)
-    std::ifstream listDataSetFile("listDataSetv2.1.txt");
+    std::ifstream listDataSetFile("newDatasetv3.0.txt");
     for (std::string line ; getline(listDataSetFile, line);)
     {
 
-        std::vector<std::string> stringLabelParsed;
-        boost::algorithm::split(stringLabelParsed, line, boost::is_any_of("/"));
-        listDataSet.push_back(stringLabelParsed[1]);
+        // std::vector<std::string> stringLabelParsed;
+        // boost::algorithm::split(stringLabelParsed, line, boost::is_any_of("/"));
+        // listDataSet.push_back(stringLabelParsed[1]);
+        listDataSet.push_back(line);
     }
 
 

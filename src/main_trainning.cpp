@@ -135,117 +135,117 @@ int main (int argc, char** argv)
     MyFileData.close();
 
 
-    // // ///// FILTER AND SEGMENTATION
-    std::vector<modelRaw> modelsSegmented;
-    pcl::PCDWriter writer;
-    for(auto it : models)
-    {
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>());
+    // // // ///// FILTER AND SEGMENTATION
+    // std::vector<modelRaw> modelsSegmented;
+    // pcl::PCDWriter writer;
+    // for(auto it : models)
+    // {
+    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>());
 
-        // Filter Removing NaN data Pointcloud.
-        std::vector<int> mapping;
-        pcl::removeNaNFromPointCloud(*it.second, *cloud_filtered, mapping);
-        // std::cerr << "Pointcloud remove NaN : " << cloud_filtered->size() << " data points." << std::endl;
+    //     // Filter Removing NaN data Pointcloud.
+    //     std::vector<int> mapping;
+    //     pcl::removeNaNFromPointCloud(*it.second, *cloud_filtered, mapping);
+    //     // std::cerr << "Pointcloud remove NaN : " << cloud_filtered->size() << " data points." << std::endl;
 
-        // Create the segmentation object for the planar model and set all the parameters
-        pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZRGB> ());
-        seg.setOptimizeCoefficients (true);
-        seg.setModelType (pcl::SACMODEL_PLANE);
-        seg.setMethodType (pcl::SAC_RANSAC);
-        // seg.setMaxIterations (100);
-        seg.setDistanceThreshold (0.02);
+    //     // Create the segmentation object for the planar model and set all the parameters
+    //     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+    //     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+    //     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZRGB> ());
+    //     seg.setOptimizeCoefficients (true);
+    //     seg.setModelType (pcl::SACMODEL_PLANE);
+    //     seg.setMethodType (pcl::SAC_RANSAC);
+    //     // seg.setMaxIterations (100);
+    //     seg.setDistanceThreshold (0.02);
 
 
-      /* loop */
-        int i=0, nr_points = (int) cloud_filtered->size ();
-        while (cloud_filtered->size () > 0.4 * nr_points)
-        {
-          // Segment the largest planar component from the remaining cloud
-          seg.setInputCloud (cloud_filtered);
-          seg.segment (*inliers, *coefficients);
-          if (inliers->indices.size () == 0)
-          {
-            std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
-            break;
-          }
+    //   /* loop */
+    //     int i=0, nr_points = (int) cloud_filtered->size ();
+    //     while (cloud_filtered->size () > 0.4 * nr_points)
+    //     {
+    //       // Segment the largest planar component from the remaining cloud
+    //       seg.setInputCloud (cloud_filtered);
+    //       seg.segment (*inliers, *coefficients);
+    //       if (inliers->indices.size () == 0)
+    //       {
+    //         std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+    //         break;
+    //       }
 
-          // Extract the planar inliers from the input cloud
-          pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-          extract.setInputCloud (cloud_filtered);
-          extract.setIndices (inliers);
-          extract.setNegative (false);
+    //       // Extract the planar inliers from the input cloud
+    //       pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+    //       extract.setInputCloud (cloud_filtered);
+    //       extract.setIndices (inliers);
+    //       extract.setNegative (false);
 
-          // Get the points associated with the planar surface
-          extract.filter (*cloud_plane);
-          // std::cout << "PointCloud representing the planar component" << i << "th : " << cloud_plane->size () << " data points." << std::endl;
+    //       // Get the points associated with the planar surface
+    //       extract.filter (*cloud_plane);
+    //       // std::cout << "PointCloud representing the planar component" << i << "th : " << cloud_plane->size () << " data points." << std::endl;
 
-          // Remove the planar inliers, extract the rest
-          extract.setNegative (true);
-          extract.filter (*cloud_filtered);
+    //       // Remove the planar inliers, extract the rest
+    //       extract.setNegative (true);
+    //       extract.filter (*cloud_filtered);
 
-          i++;
-        }
+    //       i++;
+    //     }
 
-        // Creating the KdTree object for the search method of the extraction
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
-        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-        tree->setInputCloud (cloud_filtered);
+    //     // Creating the KdTree object for the search method of the extraction
+    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
+    //     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+    //     tree->setInputCloud (cloud_filtered);
 
-        std::vector<pcl::PointIndices> cluster_indices;
-        pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-        ec.setClusterTolerance (0.02); // 2cm
-        ec.setMinClusterSize (100);
-        ec.setMaxClusterSize (25000);
-        ec.setSearchMethod (tree);
-        ec.setInputCloud (cloud_filtered);
-        ec.extract (cluster_indices);
+    //     std::vector<pcl::PointIndices> cluster_indices;
+    //     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    //     ec.setClusterTolerance (0.02); // 2cm
+    //     ec.setMinClusterSize (100);
+    //     ec.setMaxClusterSize (25000);
+    //     ec.setSearchMethod (tree);
+    //     ec.setInputCloud (cloud_filtered);
+    //     ec.extract (cluster_indices);
 
-        // std::cout << "cloudClustered : " << cloud_clustered->size() << std::endl;
+    //     // std::cout << "cloudClustered : " << cloud_clustered->size() << std::endl;
 
-        int j = 0;
-        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-        {
-          pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
-          for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
-            cloud_cluster->push_back ((*cloud_filtered)[*pit]); //*
-          cloud_cluster->width = cloud_cluster->size ();
-          cloud_cluster->height = 1;
-          cloud_cluster->is_dense = true;
+    //     int j = 0;
+    //     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+    //     {
+    //       pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
+    //       for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+    //         cloud_cluster->push_back ((*cloud_filtered)[*pit]); //*
+    //       cloud_cluster->width = cloud_cluster->size ();
+    //       cloud_cluster->height = 1;
+    //       cloud_cluster->is_dense = true;
 
-          // take the bigger size point that can be conclusion is main object
-          if(cloud_clustered->size() < cloud_cluster->size())
-            *cloud_clustered = *cloud_cluster;
+    //       // take the bigger size point that can be conclusion is main object
+    //       if(cloud_clustered->size() < cloud_cluster->size())
+    //         *cloud_clustered = *cloud_cluster;
 
-          // std::cout << "PointCloud representing the Cluster " << j << " th : " << cloud_cluster->size () << " data points." << std::endl;
+    //       // std::cout << "PointCloud representing the Cluster " << j << " th : " << cloud_cluster->size () << " data points." << std::endl;
           
 
-          j++;
-        }
+    //       j++;
+    //     }
 
-        *cloud_filtered = *cloud_clustered;
+    //     *cloud_filtered = *cloud_clustered;
 
 
         
 
-        // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
+    //     // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
 
-        //save segmented dataset
-        // std::stringstream ssCloud;
-        // ssCloud << "capture_dataset/segmented/" << it.first.category  << "_" << it.first.no << ".pcd";
-        // writer.write<pcl::PointXYZRGB> (ssCloud.str (), *cloud_filtered, false); //*
-        std::string dir = "capture_dataset/segmented/" + it.first.category;
-        boost::filesystem::create_directory(dir);
-        std::string ssCloud = dir + "/" + std::to_string(it.first.no) + "_" + it.first.filename + ".pcd";
-        pcl::io::savePCDFile(ssCloud, *cloud_filtered);
-        std::cout << "model segmented saved" << ssCloud  << std::endl;
+    //     //save segmented dataset
+    //     // std::stringstream ssCloud;
+    //     // ssCloud << "capture_dataset/segmented/" << it.first.category  << "_" << it.first.no << ".pcd";
+    //     // writer.write<pcl::PointXYZRGB> (ssCloud.str (), *cloud_filtered, false); //*
+    //     std::string dir = "capture_dataset/segmented/" + it.first.category;
+    //     boost::filesystem::create_directory(dir);
+    //     std::string ssCloud = dir + "/" + std::to_string(it.first.no) + "_" + it.first.filename + ".pcd";
+    //     pcl::io::savePCDFile(ssCloud, *cloud_filtered);
+    //     std::cout << "model segmented saved" << ssCloud  << std::endl;
 
-        // //PUSH TO MAIN DATA ARRAY 
-        modelRaw tmpModelSegmented(it.first, cloud_filtered);
-        modelsSegmented.push_back(tmpModelSegmented);
-    }
+    //     // //PUSH TO MAIN DATA ARRAY 
+    //     modelRaw tmpModelSegmented(it.first, cloud_filtered);
+    //     modelsSegmented.push_back(tmpModelSegmented);
+    // }
 
   
 
@@ -264,7 +264,7 @@ int main (int argc, char** argv)
     VFHEstimationType vfhEstimation;
 
     // for(std::size_t i = 0; i < models.size(); ++i )
-    for(auto it : models)//modelsSegmented)
+    for(auto it : models)// models)//modelsSegmented)
     {
 
         // std::cout << it.size() << std::endl;

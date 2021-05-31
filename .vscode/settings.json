@@ -2,5 +2,8 @@
     "python.autoComplete.extraPaths": [
         ""
     ],
-    "ros.distro": "noetic"
+    "ros.distro": "noetic",
+    "python.analysis.extraPaths": [
+        ""
+    ]
 }

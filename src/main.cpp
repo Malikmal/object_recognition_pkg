@@ -103,7 +103,7 @@ main (int argc, char** argv)
 
     /** percobaan **
     // std::vector<std::string> listDataSet;
-    // std::ifstream listDataSetFile("listDataSetv2.1.txt");
+    // std::ifstream listDataSetFile("newDatasetv3.1.txt");
     // for (std::string line ; getline(listDataSetFile, line);)
     // {
     //     listDataSet.push_back(line);
@@ -319,7 +319,7 @@ main (int argc, char** argv)
         pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
         normalEstimation.setInputCloud (it.second);
         normalEstimation.setSearchMethod (tree);
-        normalEstimation.setRadiusSearch (0.03);
+        normalEstimation.setRadiusSearch (0.01);
         pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
         // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
@@ -384,20 +384,22 @@ main (int argc, char** argv)
 
     // READ label/class trainned (dataset)
     std::vector<std::string> listDataSet;
-    std::ifstream listDataSetFile("listDataSetv2.1.txt");
+    std::ifstream listDataSetFile("newDatasetv3.1.txt");
     for (std::string line ; getline(listDataSetFile, line);)
     {
 
-        std::vector<std::string> stringLabelParsed;
-        boost::algorithm::split(stringLabelParsed, line, boost::is_any_of("/"));
-        listDataSet.push_back(stringLabelParsed[1]);
+        // std::vector<std::string> stringLabelParsed;
+        // boost::algorithm::split(stringLabelParsed, line, boost::is_any_of("/"));
+        // listDataSet.push_back(stringLabelParsed[1]);
+        listDataSet.push_back(line);
+        
     }
 
 
     // ARTIFICIAL NEURAL NETOWRK
 
     std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("bbbbbbb.net"); // generated from training
+    struct fann *ann = fann_create_from_file("newDatasetv3.1.net");//("bbbbbbb.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
     for(auto it : dataAddVFH)

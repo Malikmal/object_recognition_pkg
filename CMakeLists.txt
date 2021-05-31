@@ -466,3 +466,27 @@ target_link_libraries(trackbar_node
     ${OpenCV_LIBS}
 )
 add_dependencies(trackbar_node object_recognition_pkg_generate_messages_cpp)
+
+
+
+
+# /******************* TESTING ***********************/
+
+
+# 1_camera_node node
+add_executable(1_camera_node src/explode_node/1_camera_node.cpp)
+target_link_libraries(1_camera_node 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)
+add_dependencies(1_camera_node object_recognition_pkg_generate_messages_cpp)

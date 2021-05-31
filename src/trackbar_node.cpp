@@ -6,6 +6,7 @@
 #include "std_msgs/Float32.h"
 #include "std_msgs/Int32MultiArray.h"
 #include "std_msgs/String.h"
+#include "sensor_msgs/PointCloud2.h"
 #include "object_recognition_pkg/trackbar.h"
 
 int param[6] = {0};

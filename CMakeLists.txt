@@ -214,6 +214,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   std_msgs
+  genmsg
   message_generation
   actionlib
   actionlib_msgs
@@ -221,20 +222,24 @@ find_package(catkin REQUIRED COMPONENTS
 
 
 add_message_files(
+  DIRECTORY msg
   FILES
-  trackbar.msg
+    trackbar.msg
+    vfh.msg
+    data_completed.msg
 )
 
 generate_messages(
   DEPENDENCIES
   std_msgs
+  sensor_msgs
   actionlib_msgs
 )
 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES my_pkg
-   CATKIN_DEPENDS roscpp std_msgs message_runtime 
+   CATKIN_DEPENDS roscpp std_msgs sensor_msgs message_runtime 
 #  DEPENDS system_lib
 )
 

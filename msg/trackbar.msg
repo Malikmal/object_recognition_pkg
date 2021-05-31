@@ -1,4 +1,4 @@
-float64 minX
+float32 minX
 float32 maxX
 float32 minY
 float32 maxY

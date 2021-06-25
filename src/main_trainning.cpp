@@ -17,6 +17,8 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/features/vfh.h>
+#include <pcl/features/our_cvfh.h>
+#include <pcl/features/gasd.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/sample_consensus/method_types.h>
@@ -98,7 +100,7 @@ int FANN_API callbackTrainning(
     unsigned int epochs
 )
 {
-    ofstream MyFileData("newDatasetv3.1_error.txt", ios::app);
+    ofstream MyFileData("newDatasetv6.5_error.txt", ios::app);
     MyFileData << epochs << ", " 
                << fann_get_MSE(ann) << ", " 
                << desired_error << ", "
@@ -120,7 +122,7 @@ int main (int argc, char** argv)
 
     std::cout << "file readed : " << models.size() << std::endl;
 
-    ofstream MyFileData("newDatasetv3.1.txt");
+    ofstream MyFileData("newDatasetv6.5.txt");
     int no  = 0;
     std::vector<int> category;
     for(auto it : models)
@@ -256,12 +258,30 @@ int main (int argc, char** argv)
     std::vector<std::vector<float> > VFHValues;
 
     //write file for data trainninng FANN librray format
-    ofstream MyFile("newDatasetv3.1.data");
+    ofstream MyFile("newDatasetv6.5.data");
     MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
+
+    //write file for data trainninng csv format 
+    // Warning i'm using ; seperated symbol standard in my country
+    ofstream MyFileCsv("newDatasetv6.5.csv");
+
+    // saving csv header format
+    MyFileCsv << "label" ; 
+    for(int i =1 ; i <= 308; i++)
+    {
+        // std::cout << it2 << std::endl;
+        MyFileCsv  << ";" << "H" << i ;
+    }
+    MyFileCsv << std::endl;
+
     
     pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
     typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
+    typedef pcl::OURCVFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> OurVFHEstimationType;
+    // pcl::GASDColorEstimation<pcl::PointXYZRGB, pcl::GASDSignature984> gasdEstimation;
     VFHEstimationType vfhEstimation;
+    OurVFHEstimationType ourVfhEstimation;
+    
 
     // for(std::size_t i = 0; i < models.size(); ++i )
     for(auto it : models)// models)//modelsSegmented)
@@ -286,19 +306,27 @@ int main (int argc, char** argv)
         // Setup the feature computation
 
         // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (it.second);
+        ourVfhEstimation.setInputCloud (it.second);
 
         // Provide the point cloud with normals
-        vfhEstimation.setInputNormals(cloudWithNormals);
+        ourVfhEstimation.setInputNormals(cloudWithNormals);
 
         // Use the same KdTree from the normal estimation
-        vfhEstimation.setSearchMethod (tree);
+        ourVfhEstimation.setSearchMethod (tree);
 
         //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
 
+
+        ourVfhEstimation.setEPSAngleThreshold(5.0 / 180.0 * M_PI); // 5 degrees.
+        ourVfhEstimation.setCurvatureThreshold(1.0);
+        ourVfhEstimation.setNormalizeBins(true);
+        // Set the minimum axis ratio between the SGURF axes. At the disambiguation phase,
+        // this will decide if additional Reference Frames need to be created, if ambiguous.
+        ourVfhEstimation.setAxisRatio(0.8);
+
         // Actually compute the VFH features
         pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-        vfhEstimation.compute (*vfhFeatures);
+        ourVfhEstimation.compute (*vfhFeatures);
 
         // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
@@ -314,6 +342,16 @@ int main (int argc, char** argv)
         // std::vector<float> VFHValues;
         // float vfh[308] = vfhFeatures->points[0].histogram;
 
+        // saving csv format
+        MyFileCsv << it.first.category ;
+        for(auto it2 : vfhFeatures->points[0].histogram)
+        {
+            // std::cout << it2 << std::endl;
+            MyFileCsv << ";" << it2 ;
+        }
+        MyFileCsv << std::endl;
+
+        //saving fann format
         std::vector<float> VFHValue;
         for(auto it2 : vfhFeatures->points[0].histogram)
         {
@@ -366,11 +404,13 @@ int main (int argc, char** argv)
 
     printf("Creating network.\n");
     // ann = fann_create_standard(num_layers, num_input, num_neurons_hidden, num_output);
-    ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv3.1
+    // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv6.5
+    ann = fann_create_standard(3, 308, 616, category.size()); // newDatasetv6.5
+    
     // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // ccccccc
 
 
-    data = fann_read_train_from_file("newDatasetv3.1.data");
+    data = fann_read_train_from_file("newDatasetv6.5.data");
 
     fann_set_activation_steepness_hidden(ann, 0.01); //deafault 0.5 //bbbbbb = 0.01
     fann_set_activation_steepness_output(ann, 0.01); //deafault 0.5
@@ -408,27 +448,27 @@ int main (int argc, char** argv)
     // }
     // MyFileData.close();
 
-    printf("Testing network. %f\n", fann_test_data(ann, data));
+    // printf("Testing network. %f\n", fann_test_data(ann, data));
 
 
-    for(i = 0; i < fann_length_train_data(data); i++)
-    {
-    calc_out = fann_run(ann, data->input[i]);
-    printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
-          data->input[i][0], data->input[i][1], 
-                calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
-                data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
-          fann_abs(calc_out[0] - data->output[i][0]));
+    // for(i = 0; i < fann_length_train_data(data); i++)
+    // {
+    // calc_out = fann_run(ann, data->input[i]);
+    // printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
+    //       data->input[i][0], data->input[i][1], 
+    //             calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
+    //             data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
+    //       fann_abs(calc_out[0] - data->output[i][0]));
         
 
-    }
+    // }
 
     printf("Saving network.\n");
 
-    fann_save(ann, "newDatasetv3.1.net");
+    fann_save(ann, "newDatasetv6.5.net");
 
-    decimal_point = fann_save_to_fixed(ann, "newDatasetv3.1_fixed.net");
-    fann_save_train_to_fixed(data, "newDatasetv3.1fixed.data", decimal_point);
+    decimal_point = fann_save_to_fixed(ann, "newDatasetv6.5_fixed.net");
+    fann_save_train_to_fixed(data, "newDatasetv6.5fixed.data", decimal_point);
 
     printf("Cleaning up.\n");
     fann_destroy_train(data);
@@ -487,7 +527,7 @@ int main (int argc, char** argv)
     // // print_fann_configuration(ann); //handmade   
 
 
-    // fann_train_on_file(ann, "newDatasetv3.1.data", max_epochs,
+    // fann_train_on_file(ann, "newDatasetv6.5.data", max_epochs,
     //     epochs_between_reports, desired_error);
 
 

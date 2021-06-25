@@ -179,22 +179,32 @@ void subMain()
     std::vector<int> mapping;
     pcl::removeNaNFromPointCloud(*acquiredCloud, *acquiredCloud, mapping);
 
-    // // Filter object crop by z coordinate
-    // pcl::PassThrough<pcl::PointXYZRGB> pass;
-    // pass.setInputCloud (acquiredCloud);
-    // pass.setFilterFieldName ("z");
-    // pass.setFilterLimits (0.0, 2.0);
-    // //pass.setFilterLimitsNegative (true);
-    // pass.filter (*acquiredCloud);
-    // // std::cerr << "Pointcloud after cropped : " << cloud->size() << " data points." << std::endl;
+    // Filter object crop by z coordinate
+    pcl::PassThrough<pcl::PointXYZRGB> pass;
+    pass.setInputCloud (acquiredCloud);
+    pass.setFilterFieldName ("z");
+    pass.setFilterLimits (0.0, 2.0);
+    //pass.setFilterLimitsNegative (true);
+    pass.filter (*acquiredCloud);
+    // std::cerr << "Pointcloud after cropped : " << cloud->size() << " data points." << std::endl;
 
-    //filter by condifional removal (cropping)
-    ConditionalRemovalFieldPOS(
-        acquiredCloud,
-        acquiredCloud
-        // Eigen::Vector4f(trackbarVal.minX, trackbarVal.minY, trackbarVal.minZ, 1.0f), 
-        // Eigen::Vector4f(trackbarVal.maxX,trackbarVal.maxY,trackbarVal.maxZ, 1.0f)
-    );
+    // Filter downsample the dataset using a leaf size of 1cm
+    pcl::VoxelGrid<pcl::PointXYZRGB> vg;
+    vg.setInputCloud (acquiredCloud);
+    vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
+    vg.filter (*acquiredCloud);
+    // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
+
+
+    ///////////////////////////// with trackbar ///////////////////////////
+
+    // // filter by condifional removal (cropping)
+    // ConditionalRemovalFieldPOS(
+    //     acquiredCloud,
+    //     acquiredCloud
+    //     Eigen::Vector4f(trackbarVal.minX, trackbarVal.minY, trackbarVal.minZ, 1.0f), 
+    //     Eigen::Vector4f(trackbarVal.maxX,trackbarVal.maxY,trackbarVal.maxZ, 1.0f)
+    // );
     
 
     // // Filter downsample the dataset using a leaf size of 1cm
@@ -222,8 +232,11 @@ void subMain()
     seg.setOptimizeCoefficients (true);
     seg.setModelType (pcl::SACMODEL_PLANE);
     seg.setMethodType (pcl::SAC_RANSAC);
-    seg.setMaxIterations ( trackbarVal.seg_max_iteration); //100
-    seg.setDistanceThreshold ( trackbarVal.seg_dist_thresh); //0.01f
+    // seg.setMaxIterations ( trackbarVal.seg_max_iteration); //100
+    // seg.setDistanceThreshold ( trackbarVal.seg_dist_thresh); //0.01f
+
+    seg.setMaxIterations (100);
+    seg.setDistanceThreshold (0.01);
 
 
     int i=0;
@@ -256,6 +269,59 @@ void subMain()
         i++;
     }    
     // /******************** segmentation-end ****************************/
+
+
+
+    /******************** clustering-start ****************************/ 
+    // Creating the KdTree object for the search method of the extraction
+    pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+    tree->setInputCloud (acquiredCloud);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
+    std::vector<pcl::PointIndices> cluster_indices;
+    pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+    ec.setClusterTolerance (0.02); // 2cm
+    ec.setMinClusterSize (100);
+    ec.setMaxClusterSize (25000);
+    ec.setSearchMethod (tree);
+    ec.setInputCloud (acquiredCloud);
+    ec.extract (cluster_indices);
+
+    //// get the cluster models
+    i = 0;
+    // std::vector<modelsDetail> dataClustered;
+    for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+    {
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
+        for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+            cloud_cluster->push_back ((*acquiredCloud)[*pit]); //*
+
+        cloud_cluster->width = cloud_cluster->size ();
+        cloud_cluster->height = 1;
+        cloud_cluster->is_dense = true;
+
+
+        // modelsDetail modelClustered;
+        // modelClustered.second = cloud_cluster;
+        // modelClustered.first.no = i; 
+        // objectData.push_back (modelClustered);
+        
+
+        if(cloud_clustered->size() < cloud_cluster->size())
+        *cloud_clustered = *cloud_cluster;
+
+        // BoundingBox(cloud_cluster, viewer);
+        // viewer.addPointCloud(cloud_cluster);
+
+        // pcl::PointXYZRGB minPt, maxPt;
+        // pcl::getMinMax3D (*cloud_cluster, minPt, maxPt);
+        // std::string bboxId = "BBOX" + std::to_string(rand() % 100);
+        // viewer->addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
+        // viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
+        // // viewer->addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
+    }
+    *acquiredCloud = *cloud_clustered;
+    /******************** clustering-end ****************************/ 
+
 
 }
 
@@ -292,15 +358,25 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
 
 	viewer->updatePointCloud(acquiredCloud, "original");
 
+
+    viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
+    if(save_cloud_ == true){
+        // save_cloud_ = false;
+        pcd_filename_ = "capture_dataset/new/scene/pcl" + std::to_string(counter_) + ".pcd";
+        pcl::io::savePCDFileASCII(pcd_filename_, *acquiredCloud);
+
+        // counter_++; 
+    }
+
     subMain();
     
     pcl::toROSMsg(*acquiredCloud, *cloudMsg);
     pclpub.publish(cloudMsg);
 
-    viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
+    // viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
     if(save_cloud_ == true){
         save_cloud_ = false;
-        pcd_filename_ = "capture_dataset/new/water_can/pcl" + std::to_string(counter_) + ".pcd";
+        pcd_filename_ = "capture_dataset/new/segmented/pcl" + std::to_string(counter_) + ".pcd";
         pcl::io::savePCDFileASCII(pcd_filename_, *acquiredCloud);
 
         counter_++; 

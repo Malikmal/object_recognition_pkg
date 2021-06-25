@@ -26,6 +26,7 @@ typedef pcl::PointCloud<XYZRGB>::Ptr pclXYZRGBptr;
 
 object_recognition_pkg::data_completed data;
 
+
 inline float PackRGB(uint8_t r, uint8_t g, uint8_t b) {
   uint32_t color_uint = ((uint32_t)r << 16 | (uint32_t) g << 8 | (uint32_t)b);
   return *reinterpret_cast<float *>(&color_uint);
@@ -33,15 +34,16 @@ inline float PackRGB(uint8_t r, uint8_t g, uint8_t b) {
 
 int main(int argc, char * argv[]){
   ros::init(argc, argv, "RosGrabRGBD");
-
   ros::NodeHandle nh;
-  ros::Publisher data_pub = nh.advertise<object_recognition_pkg::data_completed>("/camera_node", 1);    
+  ros::Publisher pclpub = nh.advertise<sensor_msgs::PointCloud2>("/RSpclAcquisition", 1);
 
-  sensor_msgs::PointCloud2 cloudMsg;
-  cv_bridge::CvImage img_bridge;
-  sensor_msgs::Image imageMsg;
+  image_transport::ImageTransport it(nh);
+  image_transport::Publisher imgpub = it.advertise("/RSimgAcquisition", 1);
 
-  pclXYZRGB acquiredCloud;
+  sensor_msgs::PointCloud2Ptr cloudMsg (new sensor_msgs::PointCloud2());
+  sensor_msgs::ImagePtr imageMsg;
+
+  pclXYZRGBptr acquiredCloud(new pclXYZRGB);
   cv::Mat acquiredImage;
 
   // Create a pipeline to easily configure and start the camera
@@ -57,10 +59,10 @@ int main(int argc, char * argv[]){
   RSConfig.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_BGR8, 30);
 
   rsCamera.start(RSConfig);
-  acquiredCloud.width = 640;
-    acquiredCloud.height = 480;
-    acquiredCloud.points.resize(acquiredCloud.width * acquiredCloud.height);
-    acquiredCloud.is_dense = false;
+  acquiredCloud->width = 640;
+    acquiredCloud->height = 480;
+    acquiredCloud->points.resize(acquiredCloud->width * acquiredCloud->height);
+    acquiredCloud->is_dense = false;
 
   rs2::align align_to_depth(RS2_STREAM_DEPTH);
   rs2::align align_to_color(RS2_STREAM_COLOR);
@@ -84,7 +86,7 @@ int main(int argc, char * argv[]){
     auto depth = rs_Frameset.get_depth_frame();
     // auto colorized_depth = rs_Colorizer.colorize(depth);
     auto ptr = rs_MatCloud.calculate(depth).get_vertices();
-    for (auto& it : acquiredCloud.points){
+    for (auto& it : acquiredCloud->points){
 			it.x = ptr->x;
 			it.y = ptr->y;
 			it.z = ptr->z;
@@ -92,18 +94,13 @@ int main(int argc, char * argv[]){
 			ptr++;
 		}
     acquiredImage = cv::Mat(cv::Size(640, 480), CV_8UC3, (void*)rs_Frameset.get_color_frame().get_data(), cv::Mat::AUTO_STEP);
-    img_bridge = cv_bridge::CvImage(std_msgs::Header(), sensor_msgs::image_encodings::RGB8, acquiredImage);
-    img_bridge.toImageMsg(imageMsg);
-    data.rawRGB = imageMsg;
-	  // imgpub.publish(imageMsg);
+    imageMsg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", acquiredImage).toImageMsg();
+	  imgpub.publish(imageMsg);
 
-    pcl::toROSMsg(acquiredCloud, cloudMsg);
-    data.rawDepth = cloudMsg;
-		// pclpub.publish(cloudMsg);
+    pcl::toROSMsg(*acquiredCloud, *cloudMsg);
+		pclpub.publish(cloudMsg);
 
-
-    data_pub.publish(data);
-
+    // data.rawRGB    
   }
   return EXIT_SUCCESS;
 }

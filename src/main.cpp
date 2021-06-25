@@ -1,3 +1,5 @@
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -6,6 +8,7 @@
 #include "fann.h"
 #include "floatfann.h"
 
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
@@ -13,6 +16,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/features/vfh.h>
+#include <pcl/features/our_cvfh.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/sample_consensus/method_types.h>
@@ -27,6 +31,8 @@
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
 
+#include "object_recognition_pkg/data_completed.h"
+#include "object_recognition_pkg/vfh.h"
 
 // argument 1 => file ex : scene_mug_table.pcd 
 
@@ -100,6 +106,16 @@ int BoundingBox(pcl::PointCloud<pcl::PointXYZ>::Ptr point_cloud_ptr, pcl::visual
 int 
 main (int argc, char** argv)
 {
+    ros::init(argc, argv, "main");
+    ros::NodeHandle nh;
+    
+    ros::Publisher data_completed_pub;
+    data_completed_pub = nh.advertise<object_recognition_pkg::data_completed>("/data_completed",10);
+
+
+    object_recognition_pkg::data_completed data_completed_msg;
+
+    
 
     /** percobaan **
     // std::vector<std::string> listDataSet;
@@ -146,7 +162,7 @@ main (int argc, char** argv)
 
     // Read in the cloud data
     pcl::PCDReader reader;
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloudRGB (new pcl::PointCloud<pcl::PointXYZRGBA>);
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudRGB (new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_nan (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_f (new pcl::PointCloud<pcl::PointXYZ>);
@@ -162,17 +178,19 @@ main (int argc, char** argv)
     //transform scene
     Eigen::Affine3f transform_2 = Eigen::Affine3f::Identity();
     transform_2.rotate(Eigen::AngleAxisf(45, Eigen::Vector3f::UnitX()));
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGBA> ());
+    // transform_2.rotate(Eigen::AngleAxisf(-90, Eigen::Vector3f::UnitX()));
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud (new pcl::PointCloud<pcl::PointXYZRGB> ());
     pcl::transformPointCloud (*cloudRGB, *transformed_cloud, transform_2);
+    pcl::transformPointCloud (*cloud, *cloud, transform_2);
+    
+
 
     // add original pointcloud to viewer
-    viewer.addPointCloud(transformed_cloud);
+    int v1(0);
+    viewer.createViewPort(0.0, 0.0, 0.5, 0.5, v1);
+    viewer.addText("original", 10,10, "v1 text", v1);
+    viewer.addPointCloud(transformed_cloud, "original", v1);
     // viewer.addPointCloud(cloud);
-    viewer.addCoordinateSystem (1.0);
-    viewer.initCameraParameters ();
-    viewer.setCameraPosition(0, 30, 0,    0, 0, 0,   0, 0, 1);
-    viewer.setCameraFieldOfView(0.523599);
-    viewer.setCameraClipDistances(0.00522511, 50);
 
     // Filter Removing NaN data Pointcloud.
     std::vector<int> mapping;
@@ -183,8 +201,8 @@ main (int argc, char** argv)
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_passthrough(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PassThrough<pcl::PointXYZ> pass;
     pass.setInputCloud (cloud_nan);
-    pass.setFilterFieldName ("z");
-    pass.setFilterLimits (0.0, 2.0);
+    pass.setFilterFieldName ("y");
+    pass.setFilterLimits (-2.0, 2.0);
     //pass.setFilterLimitsNegative (true);
     pass.filter (*cloud_passthrough);
     std::cerr << "Pointcloud after cropped : " << cloud_passthrough->size() << " data points." << std::endl;
@@ -204,8 +222,14 @@ main (int argc, char** argv)
     pcl::io::savePCDFile("src/object_recognition_pkg/output/filter/voxel_grid.pcd", *cloud_filtered);
     
 
-    //trasnform cloud 45deg
-    pcl::transformPointCloud (*cloud_filtered, *cloud_filtered, transform_2);
+
+    int v2(0);
+    viewer.createViewPort(0.5, 0.0, 1.0, 0.5, v2);
+    viewer.addText("filtered", 10,10, "v2 text", v2);
+    viewer.addPointCloud(cloud_filtered, "filtered", v2);
+
+    // //trasnform cloud 45deg
+    // pcl::transformPointCloud (*cloud_filtered, *cloud_filtered, transform_2);
 
 
     // Create the segmentation object for the planar model and set all the parameters
@@ -261,6 +285,12 @@ main (int argc, char** argv)
         i++;
     }
 
+
+    int v3(0);
+    viewer.createViewPort(0.0, 0.5, 0.5, 1.0, v3);
+    viewer.addText("segmented", 10,10, "v3 text", v3);
+    viewer.addPointCloud(cloud_f, "segmented", v3);
+
     // Creating the KdTree object for the search method of the extraction
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud (cloud_filtered);
@@ -305,13 +335,15 @@ main (int argc, char** argv)
         // BoundingBox(cloud_cluster, viewer);
         // viewer.addPointCloud(cloud_cluster);
     }
-
+    
 
     //// VFH DESCRIPTOR  
     std::vector<modelsDetail> dataAddVFH;
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
     typedef pcl::VFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
+    typedef pcl::OURCVFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::VFHSignature308> OurVFHEstimationType;
     VFHEstimationType vfhEstimation;
+    OurVFHEstimationType ourVfhEstimation;
     i = 0;
     for(auto it : dataClustered )
     {
@@ -326,13 +358,22 @@ main (int argc, char** argv)
         
         // Setup the feature computation
         // Provide the original point cloud (without normals)
-        vfhEstimation.setInputCloud (it.second);    // Provide the point cloud with normals
-        vfhEstimation.setInputNormals(cloudWithNormals);    // Use the same KdTree from the normal estimation
-        vfhEstimation.setSearchMethod (tree);
-        // vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
+        ourVfhEstimation.setInputCloud (it.second);    // Provide the point cloud with normals
+        ourVfhEstimation.setInputNormals(cloudWithNormals);    // Use the same KdTree from the normal estimation
+        ourVfhEstimation.setSearchMethod (tree);
+        // ourVfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
         // Actually compute the VFH features
+
+        ourVfhEstimation.setEPSAngleThreshold(5.0 / 180.0 * M_PI); // 5 degrees.
+        ourVfhEstimation.setCurvatureThreshold(1.0);
+        ourVfhEstimation.setNormalizeBins(true);
+        // Set the minimum axis ratio between the SGURF axes. At the disambiguation phase,
+        // this will decide if additional Reference Frames need to be created, if ambiguous.
+        ourVfhEstimation.setAxisRatio(0.8);
+
+
         pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-        vfhEstimation.compute (*vfhFeatures);
+        ourVfhEstimation.compute (*vfhFeatures);
         // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
         // Display and retrieve the shape context descriptor vector for the 0th point.
@@ -344,7 +385,7 @@ main (int argc, char** argv)
         std::stringstream ss;
         ss << "src/object_recognition_pkg/output/vfh/vfh_" << i << ".pcd";
         writer.write<pcl::VFHSignature308> (ss.str (), *vfhFeatures, false); //*
-        i++;
+        
 
         //push to vector 
         std::vector<float> VFHValue(
@@ -354,6 +395,24 @@ main (int argc, char** argv)
 
         it.first.histogram = VFHValue;
         dataAddVFH.push_back(it);
+
+        //push to object_recognition_pkg::data_completed_msg publisher
+        object_recognition_pkg::vfh vfh_msg;
+        int j = 0;
+        for( j=0; j<308; j++)
+        {
+            vfh_msg.vfh[j] = VFHValue[j];
+            
+        }
+        // vfh_msg.no = i;
+        data_completed_msg.vfhs.push_back(vfh_msg);
+
+        data_completed_msg.id.push_back(it.first.no);
+        // sensor_msgs::PointCloud2Ptr cloudMsg (new sensor_msgs::PointCloud2());
+        // pcl::toROSMsg(*it.second, *cloudMsg);
+        // data_completed_msg.clustered.push_back(*cloudMsg);
+        //end of push to object_recognition_pkg::data_completed_msg publisher
+        
 
         /** backup code before
         // modelsVFH.push_back (vfhFeatures);
@@ -378,13 +437,17 @@ main (int argc, char** argv)
         // }
         // VFHValues.push_back(VFHValue);
         */
+
+
+        i++;
     }
     // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
+    data_completed_pub.publish(data_completed_msg);
 
 
     // READ label/class trainned (dataset)
     std::vector<std::string> listDataSet;
-    std::ifstream listDataSetFile("newDatasetv3.1.txt");
+    std::ifstream listDataSetFile("newDatasetv6.5.txt");
     for (std::string line ; getline(listDataSetFile, line);)
     {
 
@@ -395,11 +458,13 @@ main (int argc, char** argv)
         
     }
 
+    
+
 
     // ARTIFICIAL NEURAL NETOWRK
 
     std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("newDatasetv3.1.net");//("bbbbbbb.net"); // generated from training
+    struct fann *ann = fann_create_from_file("newDatasetv6.5.net");//("bbbbbbb.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
     for(auto it : dataAddVFH)
@@ -432,6 +497,11 @@ main (int argc, char** argv)
 
 
 
+    int v4(0);
+    viewer.createViewPort(0.5, 0.5, 1.0, 1.0, v4);
+    viewer.addText("output", 10,10, "v4 text", v4);
+    viewer.addPointCloud(transformed_cloud, "output", v4);
+
 
     //visualize
     for(auto it:dataCompleted)
@@ -450,15 +520,22 @@ main (int argc, char** argv)
         stream << std::fixed << std::setprecision(2) << it.first.score;
         std::string textLabel = (it.first.category + " " + stream.str() + "%"); 
         // std::cout << "bboxId : " << bboxId << std::endl;
-        viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, 0 );
-        viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
+        viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, v4);
+        viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId, v4);
         // viewer.addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
 
-        viewer.addText3D(textLabel, pcl::PointXYZ(maxPt.x, -maxPt.y, -minPt.z), 0.05, 255.0, 1.0, 1.0,  textId);
+        viewer.addText3D(textLabel, pcl::PointXYZ(maxPt.x, -maxPt.y, -minPt.z), 0.05, 255.0, 1.0, 1.0,  textId, v4);
 
     }
     
     
+    viewer.addCoordinateSystem (1.0);
+    viewer.initCameraParameters ();
+    viewer.setCameraPosition(0, 30, 0,    0, 0, 0,   0, 0, 1);
+    viewer.setCameraFieldOfView(0.523599);
+    viewer.setCameraClipDistances(0.00522511, 50);
+
+
     // pcl::visualization::PCLVisualizer viewer("Test visualize");
     // viewer.addPointCloud( cloud, "cloud"); 
     viewer.spin();
@@ -526,5 +603,6 @@ main (int argc, char** argv)
     // }
 
 
+	ros::spin();
     return (0);
 }

@@ -212,6 +212,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
   roscpp
+  rospy
   sensor_msgs
   std_msgs
   genmsg
@@ -226,6 +227,7 @@ add_message_files(
   FILES
     trackbar.msg
     vfh.msg
+    bbox.msg
     data_completed.msg
 )
 
@@ -239,9 +241,11 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES my_pkg
-   CATKIN_DEPENDS roscpp std_msgs sensor_msgs message_runtime 
+   CATKIN_DEPENDS roscpp rospy std_msgs sensor_msgs message_runtime 
+   
 #  DEPENDS system_lib
 )
+
 
 
 include_directories(
@@ -284,6 +288,17 @@ include_directories(SYSTEM
 include_directories(/Fann/include)
 link_directories(/Fann/lib)
 
+
+
+catkin_install_python(PROGRAMS scripts/publisher_node.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+
+catkin_install_python(PROGRAMS scripts/subcriber_node.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 # main node
 add_executable(main src/main.cpp)
 target_link_libraries(main 
@@ -292,6 +307,8 @@ target_link_libraries(main
     ${Boost_LIBRARIES}
     fann
 )
+add_dependencies(main object_recognition_pkg_generate_messages_cpp)
+
 
 # main_trainning node
 add_executable(main_trainning src/main_trainning.cpp)
@@ -490,3 +507,43 @@ target_link_libraries(1_camera_node
     ${OpenCV_LIBS}
 )
 add_dependencies(1_camera_node object_recognition_pkg_generate_messages_cpp)
+
+
+
+# visualize_node node
+add_executable(visualize_node src/visualize_node.cpp)
+target_link_libraries(visualize_node 
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    fann
+    ${DEPENDENCIES}
+    ${realsense2_LIBRARY}
+    ${PCL_COMMON_LIBRARIES}
+    ${PCL_IO_LIBRARIES}
+    ${SPECIAL_OS_LIBS}
+    ${OpenCV_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBS}
+)
+add_dependencies(visualize_node object_recognition_pkg_generate_messages_cpp)
+
+
+
+# # 2_preprocesing_node node
+# add_executable(2_preprocesing_node src/explode_node/2_preprocesing_node.cpp)
+# target_link_libraries(2_preprocesing_node 
+#     ${catkin_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     fann
+#     ${DEPENDENCIES}
+#     ${realsense2_LIBRARY}
+#     ${PCL_COMMON_LIBRARIES}
+#     ${PCL_IO_LIBRARIES}
+#     ${SPECIAL_OS_LIBS}
+#     ${OpenCV_LIBRARIES}
+#     ${OPENGL_LIBRARIES}
+#     ${PCL_LIBRARIES}
+#     ${OpenCV_LIBS}
+# )
+# add_dependencies(2_preprocesing_node object_recognition_pkg_generate_messages_cpp)

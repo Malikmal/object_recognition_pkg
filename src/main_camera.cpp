@@ -28,6 +28,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/features/vfh.h>
+#include <pcl/features/our_cvfh.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/kdtree/kdtree.h>
 #include <pcl/sample_consensus/method_types.h>
@@ -54,6 +55,10 @@
 #include <pcl/common/common.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
+
+#include "object_recognition_pkg/data_completed.h"
+#include "object_recognition_pkg/vfh.h"
+#include "object_recognition_pkg/bbox.h"
 
 using namespace std;
 
@@ -90,6 +95,10 @@ std::vector<std::string> listDataSet;
 cv::Mat acquiredImage, acquiredImageRotate;
 
 
+ros::Publisher data_completed_pub;
+
+
+object_recognition_pkg::data_completed data_completed_msg;
 
 inline float PackRGB(uint8_t r, uint8_t g, uint8_t b) {
   uint32_t color_uint = ((uint32_t)r << 16 | (uint32_t) g << 8 | (uint32_t)b);
@@ -136,7 +145,7 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualiz
 
 void subMain()
 {
-    /******************** remove cube, text, and colorized clustered cloud in visualizer if exis ****************************/ 
+    // /******************** remove cube, text, and colorized clustered cloud in visualizer if exis ****************************/ 
     if(cubeIds.size())
     {
         for (auto it: cubeIds)
@@ -165,7 +174,7 @@ void subMain()
         }
         pcdClusteredIds.clear();
     }
-    /******************** remove cube, text, and colorized clustered cloud in visualizer if exis-end ****************************/ 
+    // /******************** remove cube, text, and colorized clustered cloud in visualizer if exis-end ****************************/ 
     
 
     std::vector<modelsDetail> objectData; 
@@ -276,8 +285,20 @@ void subMain()
         objectData.push_back (modelClustered);
         
 
-        if(cloud_clustered->size() < cloud_cluster->size())
-        *cloud_clustered = *cloud_cluster;
+        //get points value of bounding box
+        pcl::PointXYZRGB minPt, maxPt;
+        pcl::getMinMax3D(*cloud_cluster, minPt, maxPt);
+        object_recognition_pkg::bbox bbox_msg;
+        bbox_msg.xmin = minPt.x;
+        bbox_msg.ymin = minPt.y;
+        bbox_msg.zmin = minPt.z;
+        bbox_msg.xmax = maxPt.x;
+        bbox_msg.ymax = maxPt.y;
+        bbox_msg.zmax = maxPt.z;
+        data_completed_msg.bboxs.push_back(bbox_msg);
+
+        // if(cloud_clustered->size() < cloud_cluster->size())
+        // *cloud_clustered = *cloud_cluster;
 
         // BoundingBox(cloud_cluster, viewer);
         // viewer.addPointCloud(cloud_cluster);
@@ -289,7 +310,7 @@ void subMain()
         // viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId);
         // // viewer->addText("asdasdasdasd asdasdasdasd adasdas das d", maxPt.x, maxPt.y, textId);
     }
-    *acquiredCloud = *cloud_clustered;
+    // *acquiredCloud = *cloud_clustered;
     /******************** clustering-end ****************************/ 
 
 
@@ -346,16 +367,38 @@ void subMain()
         it.first.vfhFeature = vfhFeatures;
         dataAddVFH.push_back(it);
 
+        
+        //push to object_recognition_pkg::data_completed_msg publisher
+        object_recognition_pkg::vfh vfh_msg;
+        int j = 0;
+        for( j=0; j<308; j++)
+        {
+            vfh_msg.vfh[j] = VFHValue[j];
+            
+        }
+        // vfh_msg.no = i;
+        data_completed_msg.vfhs.push_back(vfh_msg);
+
+
+        data_completed_msg.id.push_back(it.first.no);
+        // sensor_msgs::PointCloud2Ptr cloudMsg (new sensor_msgs::PointCloud2());
+        // pcl::toROSMsg(*it.second, *cloudMsg);
+        // data_completed_msg.clustered.push_back(*cloudMsg);
+        //end of push to object_recognition_pkg::data_completed_msg publisher
+        
 
         // viewerHistogram.updateFeatureHistogram(*vfhFeatures, 308);
         
         // viewerHistogram.spinOnce();    // std::cout << 
         // std::cout << it.first.histogram.size() << " -";
+
     }
     // std::cout << std::endl;
     // std::cout << "jumlah vfh : " << VFHValues.size() << std::endl;
 
     /******************** descriptoring-end ****************************/ 
+
+    //publish data_completed
 
 
 
@@ -363,9 +406,10 @@ void subMain()
     /******************** feature-matching-start ****************************/ 
     // ARTIFICIAL NEURAL NETOWRK
     std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("newDatasetv3.0.net"); // generated from training
+    struct fann *ann = fann_create_from_file("fann/newDatasetv6.3.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
+    i = 0;
     for(auto it : dataAddVFH)
     {
         std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
@@ -386,10 +430,11 @@ void subMain()
             }
 
         }
-        std::cout << "max : " << calc_out[maxIndex] * 100 << "% " << listDataSet[maxIndex] << std::endl;
+        std::cout << i << ". " << "max : " << calc_out[maxIndex] * 100 << "% " << listDataSet[maxIndex] << std::endl;
         it.first.category = listDataSet[maxIndex];
         it.first.score = calc_out[maxIndex]*100.0;
         dataCompleted.push_back(it);
+        i++;
         
     }
     // std::cout << std::endl;
@@ -475,22 +520,24 @@ void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
 
     subMain();
     
+    // data_completed_msg.rawRGBD = *cloudInMsg;
+    data_completed_pub.publish(data_completed_msg);
 
     
 
-    viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
-    if(save_cloud_ == true){
-        save_cloud_ = false;
-        pcd_filename_ = "capture_dataset/new/water_can/pcl" + std::to_string(counter_) + ".pcd";
-        pcl::io::savePCDFileASCII(pcd_filename_, *acquiredCloud);
+    // viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
+    // if(save_cloud_ == true){
+    //     save_cloud_ = false;
+    //     pcd_filename_ = "capture_dataset/new/water_can/pcl" + std::to_string(counter_) + ".pcd";
+    //     pcl::io::savePCDFileASCII(pcd_filename_, *acquiredCloud);
 
-        counter_++; 
-    }
+    //     counter_++; 
+    // }
 
 	// viewer->updatePointCloud(acquiredCloud);
     // viewerHistogram.updateFeatureHistogram(*vfhFeature, 308);
 
-	viewer->spinOnce();
+	viewer->spinOnce(); //moved to other node
     // viewerHistogram.spin();
 
 }
@@ -504,10 +551,13 @@ void imageAcquirerReceive(const sensor_msgs::ImageConstPtr& msg){
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "ROSpclVisualizer");
-	ros::NodeHandle nh;
+
+    ros::NodeHandle nh;
+    data_completed_pub = nh.advertise<object_recognition_pkg::data_completed>("/data_completed",10);
+
 
     // READ label/class trainned (dataset)
-    std::ifstream listDataSetFile("newDatasetv3.0.txt");
+    std::ifstream listDataSetFile("fann/newDatasetv6.3.txt");
     for (std::string line ; getline(listDataSetFile, line);)
     {
 

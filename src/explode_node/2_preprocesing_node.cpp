@@ -58,6 +58,7 @@
 #include <pcl/common/eigen.h>
 
 #include "object_recognition_pkg/trackbar.h"
+#include "object_recognition_pkg/data_completed.h"
 
 using namespace std;
 
@@ -66,6 +67,8 @@ typedef pcl::PointCloud<XYZRGB> pclXYZRGB;
 typedef pcl::PointCloud<XYZRGB>::Ptr pclXYZRGBptr;
 typedef pcl::VFHEstimation<pcl::PointXYZRGB, pcl::Normal, pcl::VFHSignature308> VFHEstimationType;
 
+
+object_recognition_pkg::data_completed data;
 
 struct info{
   int no;
@@ -263,8 +266,13 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createXYZRGBVisualiz
 // pcl::visualization::PCLHistogramVisualizer viewerHistogram = createHistogramVisualizer(vfhFeature);
 
 
-void cloudAcquirerReceive(const sensor_msgs::PointCloud2ConstPtr& cloudInMsg){
-	pcl::fromROSMsg(*cloudInMsg, *acquiredCloud);
+void dataAcquirerReceive(const object_recognition_pkg::data_completed::ConstPtr& dataMsg){
+
+    acquiredImage = cv::Mat(cv_bridge::toCvShare(dataMsg->rawRGB, "bgr8").image); 
+    cv::rotate(acquiredImage, acquiredImageRotate, cv::ROTATE_180);
+	imageShow(acquiredImage);
+
+	pcl::fromROSMsg(dataMsg->rawDepth, *acquiredCloud);
 
 
     int i = 640, j = 480, k;
@@ -363,8 +371,8 @@ int main(int argc, char **argv) {
 	// cv::startWindowThread();
 
     ros::Subscriber chatter = nh.subscribe("/chatter", 1, chatterReceive);
-	image_transport::Subscriber sub = it.subscribe("/RSimgAcquisition", 1, imageAcquirerReceive);
-    ros::Subscriber pclsubAcquirer = nh.subscribe("/RSpclAcquisition", 1, cloudAcquirerReceive);
+	// image_transport::Subscriber sub = it.subscribe("/RSimgAcquisition", 1, imageAcquirerReceive);
+    ros::Subscriber dataSubAcquirer = nh.subscribe("/1_camera_node", 1, dataAcquirerReceive);
 
 	ros::spin();
 	cv::destroyWindow("OCV RS 2D Viewer");

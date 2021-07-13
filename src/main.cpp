@@ -231,7 +231,7 @@ main (int argc, char** argv)
     pcl::VoxelGrid<pcl::PointXYZRGB> vg;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>);
     vg.setInputCloud (cloud_passthrough);
-    vg.setLeafSize (0.01f, 0.01f, 0.01f); // 0.5 cm
+    vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5 cm
     vg.filter (*cloud_filtered);
     end = clock();
     time_taken = double(end - start) * 1000 / double(CLOCKS_PER_SEC); //ms
@@ -329,7 +329,7 @@ main (int argc, char** argv)
 
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-    ec.setClusterTolerance (0.02); // 2cm
+    ec.setClusterTolerance (0.03); // cm
     ec.setMinClusterSize (100);
     ec.setMaxClusterSize (25000);
     ec.setSearchMethod (tree);
@@ -395,7 +395,7 @@ main (int argc, char** argv)
         pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
         normalEstimation.setInputCloud (it.second);
         normalEstimation.setSearchMethod (tree);
-        normalEstimation.setRadiusSearch (0.03); //0.01
+        normalEstimation.setRadiusSearch (0.01); //0.01
         pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
         // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
@@ -452,22 +452,22 @@ main (int argc, char** argv)
         dataAddVFH.push_back(it);
 
         //push to object_recognition_pkg::data_completed_msg publisher
-        // object_recognition_pkg::vfh vfh_msg;
-        // int j = 0;
-        // for( j=0; j<984; j++)
-        // {
-        //     vfh_msg.vfh[j] = VFHValue[j];
+        object_recognition_pkg::vfh vfh_msg;
+        int j = 0;
+        for( j=0; j<308; j++)
+        {
+            vfh_msg.vfh[j] = VFHValue[j];
             
-        // }
-        // // vfh_msg.no = i;
-        // data_completed_msg.vfhs.push_back(vfh_msg);
+        }
+        // vfh_msg.no = i;
+        data_completed_msg.vfhs.push_back(vfh_msg);
 
         data_completed_msg.id.push_back(it.first.no);
         // sensor_msgs::PointCloud2Ptr cloudMsg (new sensor_msgs::PointCloud2());
         // pcl::toROSMsg(*it.second, *cloudMsg);
         // data_completed_msg.clustered.push_back(*cloudMsg);
         //end of push to object_recognition_pkg::data_completed_msg publisher
-         std::cout << "size historgam  - gasd : " << it.first.histogram.size() << std::endl;
+        //  std::cout << "size historgam  - gasd : " << it.first.histogram.size() << std::endl;
 
 
         /** backup code before
@@ -503,7 +503,7 @@ main (int argc, char** argv)
 
     // READ label/class trainned (dataset)
     std::vector<std::string> listDataSet;
-    std::ifstream listDataSetFile("newDatasetv6.3.txt");
+    std::ifstream listDataSetFile("newDatasetv6.7.txt");
     for (std::string line ; getline(listDataSetFile, line);)
     {
 
@@ -520,26 +520,34 @@ main (int argc, char** argv)
     // ARTIFICIAL NEURAL NETOWRK
     start = clock();
     std::vector<modelsDetail> dataCompleted;
-    struct fann *ann = fann_create_from_file("newDatasetv6.3.net");//("bbbbbbb.net"); // generated from training
+    struct fann *ann = fann_create_from_file("newDatasetv6.7.net");//("bbbbbbb.net"); // generated from training
     fann_type *calc_out;
     fann_type input[308]; //length of VFH Descriptor
     for(auto it : dataAddVFH)
     {
-        std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
+        // std::copy(it.first.histogram.begin(), it.first.histogram.end(), input);
+        int ii = 0;
+        for(auto it : it.first.histogram)
+        {
+            input[ii] = it;
+            ii++;
+        }
 
         calc_out = fann_run(ann, input);
 
         //find max score 
-        int maxIndex = 0, maxValue = 0;
+        int maxIndex = 0;
+        float maxValue = 0.0f;
         for(int i = 0 ; i < ann->num_output ; i++)
         {
             // std::cout << calc_out[i]  << " " ;//<< std::endl;
-            //  std::cout << (calc_out[i] * 100) << " % " 
-            //     << "   " << listDataSet[i] 
-            //     << std::endl;
+             std::cout << (calc_out[i] * 100) << " % " 
+                << "   " << listDataSet[i] 
+                << std::endl;
 
             if(calc_out[i] > maxValue){
                 maxIndex = i;
+                maxValue = calc_out[i];
             }
 
         }
@@ -597,7 +605,7 @@ main (int argc, char** argv)
         // std::cout << "Min z: " << minPt.z << std::endl;
         // std::cout << "Max z: " << maxPt.z << std::endl;
         std::string bboxId = "BBOX" + std::to_string(rand() % 100);
-        // std::string bboxId2 = "BBOX" + std::to_string(rand() % 100);
+        std::string bboxId2 = "BBOX" + std::to_string(rand() % 100 * 2);
         std::string textId = "TEXT" + std::to_string(rand() % 100);
         std::stringstream stream;
         stream << std::fixed << std::setprecision(2) << std::fixed << it.first.score;
@@ -605,10 +613,10 @@ main (int argc, char** argv)
         // std::cout << "bboxId : " << bboxId << std::endl;
 
         // by centroid
-        // viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, v4);
-        // viewer.addCube(minPt.x, maxPt.x,  minPt.y , maxPt.y , minPt.z,maxPt.z, 1.0, 1.0, 0.0, bboxId2, v4);
-        // viewer.addCube(min_point_AABB.x, max_point_AABB.x,  -max_point_AABB.y , -min_point_AABB.y, -max_point_AABB.z, -min_point_AABB.z, 1.0, 1.0, 1.0, bboxId, v4);
+        // // viewer.addCube(minPt.x, maxPt.x,  -maxPt.y , -minPt.y, -maxPt.z, -minPt.z, 1.0, 1.0, 1.0, bboxId, v4);
+        // viewer.addCube(minPt.x, maxPt.x,  minPt.y , maxPt.y , minPt.z,maxPt.z, 1.0, 0.0, 0.0, bboxId2, v4);
         // viewer.setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_REPRESENTATION, pcl::visualization::PCL_VISUALIZER_REPRESENTATION_WIREFRAME, bboxId2, v4);
+        // // viewer.addCube(min_point_AABB.x, max_point_AABB.x,  -max_point_AABB.y , -min_point_AABB.y, -max_point_AABB.z, -min_point_AABB.z, 1.0, 1.0, 1.0, bboxId, v4);
 
         // by moment of inertia
         viewer.addCube(position, quat,  max_point_OBB.x - min_point_OBB.x,  max_point_OBB.y - min_point_OBB.y, max_point_OBB.z - min_point_OBB.z, bboxId, v4);

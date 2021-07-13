@@ -329,7 +329,7 @@ main (int argc, char** argv)
 
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-    ec.setClusterTolerance (0.03); // cm
+    ec.setClusterTolerance (0.0285); // cm
     ec.setMinClusterSize (100);
     ec.setMaxClusterSize (25000);
     ec.setSearchMethod (tree);
@@ -579,6 +579,9 @@ main (int argc, char** argv)
 
     for(auto it:dataCompleted)
     {
+        //skip if score is under threshold you want show
+        if(it.first.score < 35.00) continue; //percentage
+
         pcl::MomentOfInertiaEstimation <pcl::PointXYZRGB> feature_extractor;
         feature_extractor.setInputCloud (it.second);
         feature_extractor.compute ();

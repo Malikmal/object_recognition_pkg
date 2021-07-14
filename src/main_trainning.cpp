@@ -100,7 +100,7 @@ int FANN_API callbackTrainning(
     unsigned int epochs
 )
 {
-    ofstream MyFileData("newDatasetv6.5_error.txt", ios::app);
+    ofstream MyFileData("newDatasetv6.8_error.txt", ios::app);
     MyFileData << epochs << ", " 
                << fann_get_MSE(ann) << ", " 
                << desired_error << ", "
@@ -114,15 +114,18 @@ int FANN_API callbackTrainning(
 
 int main (int argc, char** argv)
 {
+
+    clock_t start, end;
+    double time_taken, total_time = 0.0f;
+
+    start = clock();
     std::vector<modelRaw> models;
     std::string extension (".pcd");
     transform (extension.begin (), extension.end (), extension.begin (), (int(*)(int))tolower);
 
     LoadModels(argv[1], extension, models); // argv[1] = "dataset_washington" 
 
-    std::cout << "file readed : " << models.size() << std::endl;
-
-    ofstream MyFileData("newDatasetv6.5.txt");
+    ofstream MyFileData("newDatasetv6.8.txt");
     int no  = 0;
     std::vector<int> category;
     for(auto it : models)
@@ -136,134 +139,167 @@ int main (int argc, char** argv)
     }
     MyFileData.close();
 
-
-    // // // ///// FILTER AND SEGMENTATION
-    // std::vector<modelRaw> modelsSegmented;
-    // pcl::PCDWriter writer;
-    // for(auto it : models)
-    // {
-    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>());
-
-    //     // Filter Removing NaN data Pointcloud.
-    //     std::vector<int> mapping;
-    //     pcl::removeNaNFromPointCloud(*it.second, *cloud_filtered, mapping);
-    //     // std::cerr << "Pointcloud remove NaN : " << cloud_filtered->size() << " data points." << std::endl;
-
-    //     // Create the segmentation object for the planar model and set all the parameters
-    //     pcl::SACSegmentation<pcl::PointXYZRGB> seg;
-    //     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-    //     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZRGB> ());
-    //     seg.setOptimizeCoefficients (true);
-    //     seg.setModelType (pcl::SACMODEL_PLANE);
-    //     seg.setMethodType (pcl::SAC_RANSAC);
-    //     // seg.setMaxIterations (100);
-    //     seg.setDistanceThreshold (0.02);
+    end = clock();
+    time_taken = double(end - start) * 1000 / double(CLOCKS_PER_SEC); //ms
+    total_time += time_taken;
+    std::cerr <<  time_taken << setprecision(2) << std::fixed << " ms | " << "file readed : " << models.size() << std::endl;
 
 
-    //   /* loop */
-    //     int i=0, nr_points = (int) cloud_filtered->size ();
-    //     while (cloud_filtered->size () > 0.4 * nr_points)
-    //     {
-    //       // Segment the largest planar component from the remaining cloud
-    //       seg.setInputCloud (cloud_filtered);
-    //       seg.segment (*inliers, *coefficients);
-    //       if (inliers->indices.size () == 0)
-    //       {
-    //         std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
-    //         break;
-    //       }
 
-    //       // Extract the planar inliers from the input cloud
-    //       pcl::ExtractIndices<pcl::PointXYZRGB> extract;
-    //       extract.setInputCloud (cloud_filtered);
-    //       extract.setIndices (inliers);
-    //       extract.setNegative (false);
+    // // ///// FILTER AND SEGMENTATION
+    start = clock();
+    std::vector<modelRaw> modelsSegmented;
+    pcl::PCDWriter writer;
+    for(auto it : models)
+    {
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZRGB>());
 
-    //       // Get the points associated with the planar surface
-    //       extract.filter (*cloud_plane);
-    //       // std::cout << "PointCloud representing the planar component" << i << "th : " << cloud_plane->size () << " data points." << std::endl;
+        // Filter Removing NaN data Pointcloud.
+        std::vector<int> mapping;
+        pcl::removeNaNFromPointCloud(*it.second, *cloud_filtered, mapping);
+        // std::cerr << "Pointcloud remove NaN : " << cloud_filtered->size() << " data points." << std::endl;
 
-    //       // Remove the planar inliers, extract the rest
-    //       extract.setNegative (true);
-    //       extract.filter (*cloud_filtered);
+        // // Filter object crop by z coordinate
+        // pcl::PassThrough<pcl::PointXYZRGB> pass;
+        // pass.setInputCloud (cloud_filtered);
+        // pass.setFilterFieldName ("z");
+        // pass.setFilterLimits (0.0, 2.0);
+        // //pass.setFilterLimitsNegative (true);
+        // pass.filter (*cloud_filtered);
+        // // std::cerr << "Pointcloud after cropped : " << cloud->size() << " data points." << std::endl;
 
-    //       i++;
-    //     }
 
-    //     // Creating the KdTree object for the search method of the extraction
-    //     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
-    //     pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
-    //     tree->setInputCloud (cloud_filtered);
+        // Filter downsample the dataset using a leaf size of 1cm
+        pcl::VoxelGrid<pcl::PointXYZRGB> vg;
+        vg.setInputCloud (cloud_filtered);
+        vg.setLeafSize (0.005f, 0.005f, 0.005f); // 0.5cm
+        vg.filter (*cloud_filtered);
+        // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
 
-    //     std::vector<pcl::PointIndices> cluster_indices;
-    //     pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
-    //     ec.setClusterTolerance (0.02); // 2cm
-    //     ec.setMinClusterSize (100);
-    //     ec.setMaxClusterSize (25000);
-    //     ec.setSearchMethod (tree);
-    //     ec.setInputCloud (cloud_filtered);
-    //     ec.extract (cluster_indices);
 
-    //     // std::cout << "cloudClustered : " << cloud_clustered->size() << std::endl;
+        // Create the segmentation object for the planar model and set all the parameters
+        pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+        pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+        pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZRGB> ());
+        seg.setOptimizeCoefficients (true);
+        seg.setModelType (pcl::SACMODEL_PLANE);
+        seg.setMethodType (pcl::SAC_RANSAC);
+        seg.setMaxIterations (100);
+        seg.setDistanceThreshold (0.01);
 
-    //     int j = 0;
-    //     for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
-    //     {
-    //       pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
-    //       for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
-    //         cloud_cluster->push_back ((*cloud_filtered)[*pit]); //*
-    //       cloud_cluster->width = cloud_cluster->size ();
-    //       cloud_cluster->height = 1;
-    //       cloud_cluster->is_dense = true;
 
-    //       // take the bigger size point that can be conclusion is main object
-    //       if(cloud_clustered->size() < cloud_cluster->size())
-    //         *cloud_clustered = *cloud_cluster;
+      /* loop */
+        int i=0, nr_points = (int) cloud_filtered->size ();
+        while (cloud_filtered->size () > 0.3 * nr_points)
+        {
+          // Segment the largest planar component from the remaining cloud
+          seg.setInputCloud (cloud_filtered);
+          seg.segment (*inliers, *coefficients);
+          if (inliers->indices.size () == 0)
+          {
+            std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
+            break;
+          }
 
-    //       // std::cout << "PointCloud representing the Cluster " << j << " th : " << cloud_cluster->size () << " data points." << std::endl;
+          // Extract the planar inliers from the input cloud
+          pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+          extract.setInputCloud (cloud_filtered);
+          extract.setIndices (inliers);
+          extract.setNegative (false);
+
+          // Get the points associated with the planar surface
+          extract.filter (*cloud_plane);
+          // std::cout << "PointCloud representing the planar component" << i << "th : " << cloud_plane->size () << " data points." << std::endl;
+
+          // Remove the planar inliers, extract the rest
+          extract.setNegative (true);
+          extract.filter (*cloud_filtered);
+
+          i++;
+        }
+
+
+        // Creating the KdTree object for the search method of the extraction
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_clustered (new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZRGB>);
+        tree->setInputCloud (cloud_filtered);
+
+        std::vector<pcl::PointIndices> cluster_indices;
+        pcl::EuclideanClusterExtraction<pcl::PointXYZRGB> ec;
+        ec.setClusterTolerance (0.02); // cm
+        ec.setMinClusterSize (100);
+        ec.setMaxClusterSize (25000);
+        ec.setSearchMethod (tree);
+        ec.setInputCloud (cloud_filtered);
+        ec.extract (cluster_indices);
+
+        // std::cout << "cloudClustered : " << cloud_clustered->size() << std::endl;
+
+        int j = 0;
+        for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin (); it != cluster_indices.end (); ++it)
+        {
+          pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZRGB>);
+          for (std::vector<int>::const_iterator pit = it->indices.begin (); pit != it->indices.end (); ++pit)
+            cloud_cluster->push_back ((*cloud_filtered)[*pit]); //*
+          cloud_cluster->width = cloud_cluster->size ();
+          cloud_cluster->height = 1;
+          cloud_cluster->is_dense = true;
+
+          // take the bigger size point that can be conclusion is main object
+          if(cloud_clustered->size() < cloud_cluster->size())
+            *cloud_clustered = *cloud_cluster;
+
+          // std::cout << "PointCloud representing the Cluster " << j << " th : " << cloud_cluster->size () << " data points." << std::endl;
           
 
-    //       j++;
-    //     }
+          j++;
+        }
 
-    //     *cloud_filtered = *cloud_clustered;
+        *cloud_filtered = *cloud_clustered;
 
 
         
 
-    //     // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
+        // std::cout << "PointCloud after filtering has: " << cloud_filtered->size ()  << " data points." << std::endl; //*
 
-    //     //save segmented dataset
-    //     // std::stringstream ssCloud;
-    //     // ssCloud << "capture_dataset/segmented/" << it.first.category  << "_" << it.first.no << ".pcd";
-    //     // writer.write<pcl::PointXYZRGB> (ssCloud.str (), *cloud_filtered, false); //*
-    //     std::string dir = "capture_dataset/segmented/" + it.first.category;
-    //     boost::filesystem::create_directory(dir);
-    //     std::string ssCloud = dir + "/" + std::to_string(it.first.no) + "_" + it.first.filename + ".pcd";
-    //     pcl::io::savePCDFile(ssCloud, *cloud_filtered);
-    //     std::cout << "model segmented saved" << ssCloud  << std::endl;
+        //save segmented dataset
+        // std::stringstream ssCloud;
+        // ssCloud << "capture_dataset/segmented/" << it.first.category  << "_" << it.first.no << ".pcd";
+        // writer.write<pcl::PointXYZRGB> (ssCloud.str (), *cloud_filtered, false); //*
 
-    //     // //PUSH TO MAIN DATA ARRAY 
-    //     modelRaw tmpModelSegmented(it.first, cloud_filtered);
-    //     modelsSegmented.push_back(tmpModelSegmented);
-    // }
+        // std::string dir = "capture_dataset/segmented/" + it.first.category;
+        // boost::filesystem::create_directory(dir);
+        // std::string ssCloud = dir + "/" + std::to_string(it.first.no) + "_" + it.first.filename + ".pcd";
+        // pcl::io::savePCDFile(ssCloud, *cloud_filtered);
+        // std::cout << "model segmented saved" << ssCloud  << std::endl;
 
+
+        // //PUSH TO MAIN DATA ARRAY 
+        modelRaw tmpModelSegmented(it.first, cloud_filtered);
+        modelsSegmented.push_back(tmpModelSegmented);
+    }
+
+    end = clock();
+    time_taken = double(end - start) * 1000 / double(CLOCKS_PER_SEC); //ms
+    total_time += time_taken;
+    std::cerr <<  time_taken << setprecision(2) << std::fixed << " ms | " << "All objects has ben segmented" << std::endl;
   
 
 
 
     //// VFH DESCRIPTOR
+    start = clock();
     // std::vector<pcl::PointCloud<pcl::VFHSignature308>::Ptr> modelsVFH;
     std::vector<std::vector<float> > VFHValues;
 
     //write file for data trainninng FANN librray format
-    ofstream MyFile("newDatasetv6.5.data");
+    ofstream MyFile("newDatasetv6.8.data");
     MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
 
     //write file for data trainninng csv format 
     // Warning i'm using ; seperated symbol standard in my country
-    ofstream MyFileCsv("newDatasetv6.5.csv");
+    ofstream MyFileCsv("newDatasetv6.8.csv");
 
     // saving csv header format
     MyFileCsv << "label" ; 
@@ -284,7 +320,7 @@ int main (int argc, char** argv)
     
 
     // for(std::size_t i = 0; i < models.size(); ++i )
-    for(auto it : models)// models)//modelsSegmented)
+    for(auto it : modelsSegmented)// models)//modelsSegmented)
     {
 
         // std::cout << it.size() << std::endl;
@@ -296,7 +332,7 @@ int main (int argc, char** argv)
         normalEstimation.setSearchMethod (tree);
 
 
-        normalEstimation.setRadiusSearch (0.03);
+        normalEstimation.setRadiusSearch (0.01);
 
         pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
         normalEstimation.compute (*cloudWithNormals);
@@ -306,27 +342,27 @@ int main (int argc, char** argv)
         // Setup the feature computation
 
         // Provide the original point cloud (without normals)
-        ourVfhEstimation.setInputCloud (it.second);
+        vfhEstimation.setInputCloud (it.second);
 
         // Provide the point cloud with normals
-        ourVfhEstimation.setInputNormals(cloudWithNormals);
+        vfhEstimation.setInputNormals(cloudWithNormals);
 
         // Use the same KdTree from the normal estimation
-        ourVfhEstimation.setSearchMethod (tree);
+        vfhEstimation.setSearchMethod (tree);
 
         //vfhEstimation.setRadiusSearch (0.2); // With this, error: "Both radius (.2) and K (1) defined! Set one of them to zero first and then re-run compute()"
 
 
-        ourVfhEstimation.setEPSAngleThreshold(5.0 / 180.0 * M_PI); // 5 degrees.
-        ourVfhEstimation.setCurvatureThreshold(1.0);
-        ourVfhEstimation.setNormalizeBins(true);
-        // Set the minimum axis ratio between the SGURF axes. At the disambiguation phase,
-        // this will decide if additional Reference Frames need to be created, if ambiguous.
-        ourVfhEstimation.setAxisRatio(0.8);
+        // ourVfhEstimation.setEPSAngleThreshold(5.0 / 180.0 * M_PI); // 5 degrees.
+        // ourVfhEstimation.setCurvatureThreshold(1.0);
+        // ourVfhEstimation.setNormalizeBins(true);
+        // // Set the minimum axis ratio between the SGURF axes. At the disambiguation phase,
+        // // this will decide if additional Reference Frames need to be created, if ambiguous.
+        // ourVfhEstimation.setAxisRatio(0.8);
 
         // Actually compute the VFH features
         pcl::PointCloud<pcl::VFHSignature308>::Ptr vfhFeatures(new pcl::PointCloud<pcl::VFHSignature308>);
-        ourVfhEstimation.compute (*vfhFeatures);
+        vfhEstimation.compute (*vfhFeatures);
 
         // std::cout << "output points.size (): " << vfhFeatures->points.size () << std::endl; // This outputs 1 - should be 397!
 
@@ -343,7 +379,7 @@ int main (int argc, char** argv)
         // float vfh[308] = vfhFeatures->points[0].histogram;
 
         // saving csv format
-        MyFileCsv << it.first.category ;
+        MyFileCsv << it.first.category << ";" << it.first.filename ;
         for(auto it2 : vfhFeatures->points[0].histogram)
         {
             // std::cout << it2 << std::endl;
@@ -380,7 +416,10 @@ int main (int argc, char** argv)
     
     // Close the file
     MyFile.close();
-    std::cout << "jumlah data vfh : " << VFHValues.size();
+    end = clock();
+    time_taken = double(end - start) * 1000 / double(CLOCKS_PER_SEC); //ms
+    total_time += time_taken;
+    std::cerr <<  time_taken << setprecision(2) << std::fixed << " ms | " << "All vfh of each object has calculated : " << VFHValues.size() << std::endl;
 
 
 
@@ -388,12 +427,13 @@ int main (int argc, char** argv)
 
 
      // ARTIFICIAL NEURAL NETOWRK
+    start = clock();
     fann_type *calc_out;
-    const unsigned int num_input = 308;
-    const unsigned int num_output = 8;
-    const unsigned int num_layers = 3;
-    const unsigned int num_neurons_hidden = 308;
-    const float desired_error = (const float) 0;
+    // const unsigned int num_input = 308;
+    // const unsigned int num_output = 8;
+    // const unsigned int num_layers = 3;
+    // const unsigned int num_neurons_hidden = 308;
+    const float desired_error = (const float) 0.00000001;
     const unsigned int max_epochs = 2000;
     const unsigned int epochs_between_reports = 1;
     struct fann *ann;
@@ -404,30 +444,30 @@ int main (int argc, char** argv)
 
     printf("Creating network.\n");
     // ann = fann_create_standard(num_layers, num_input, num_neurons_hidden, num_output);
-    // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv6.5
-    ann = fann_create_standard(3, 308, 616, category.size()); // newDatasetv6.5
+    // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv6.8
+    ann = fann_create_standard(3, 308, 616, category.size()); // newDatasetv6.8
     
     // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // ccccccc
 
 
-    data = fann_read_train_from_file("newDatasetv6.5.data");
+    data = fann_read_train_from_file("newDatasetv6.8.data");
 
-    fann_set_activation_steepness_hidden(ann, 0.01); //deafault 0.5 //bbbbbb = 0.01
-    fann_set_activation_steepness_output(ann, 0.01); //deafault 0.5
+    // fann_set_activation_steepness_hidden(ann, 0.01); //deafault 0.5 //bbbbbb = 0.01
+    // fann_set_activation_steepness_output(ann, 0.01); //deafault 0.5
 
     // fann_scale_input_train_data(data, (fann_type) (0), (fann_type) 100);
     // fann_scale_output_train_data(data, (fann_type) (0), (fann_type) 100);
 
-    fann_set_activation_function_hidden(ann, FANN_SIGMOID_STEPWISE);
-    fann_set_activation_function_output(ann, FANN_SIGMOID_STEPWISE);
+    fann_set_activation_function_hidden(ann, FANN_SIGMOID);
+    fann_set_activation_function_output(ann, FANN_SIGMOID);
 
 
-    fann_set_train_stop_function(ann, FANN_STOPFUNC_BIT);
+    // fann_set_train_stop_function(ann, FANN_STOPFUNC_BIT); //defailt is MSE
     // fann_set_bit_fail_limit(ann, 0.01f); //default 0.35
 
-    fann_set_training_algorithm(ann, FANN_TRAIN_RPROP); //defailt FANN_TRAIN_RPROP
+    fann_set_training_algorithm(ann, FANN_TRAIN_BATCH); //defailt FANN_TRAIN_RPROP
 
-    fann_init_weights(ann, data);
+    // fann_init_weights(ann, data);
 
 
     fann_set_callback(ann, (fann_callback_type)&callbackTrainning); //callback to save error
@@ -453,26 +493,37 @@ int main (int argc, char** argv)
 
     // for(i = 0; i < fann_length_train_data(data); i++)
     // {
-    // calc_out = fann_run(ann, data->input[i]);
-    // printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
-    //       data->input[i][0], data->input[i][1], 
-    //             calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
-    //             data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
-    //       fann_abs(calc_out[0] - data->output[i][0]));
+    //     calc_out = fann_run(ann, data->input[i]);
+    //     printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
+    //         data->input[i][0], data->input[i][1], 
+    //                 calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
+    //                 data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
+    //         fann_abs(calc_out[0] - data->output[i][0]));
         
 
     // }
 
     printf("Saving network.\n");
 
-    fann_save(ann, "newDatasetv6.5.net");
+    fann_save(ann, "newDatasetv6.8.net");
 
-    decimal_point = fann_save_to_fixed(ann, "newDatasetv6.5_fixed.net");
-    fann_save_train_to_fixed(data, "newDatasetv6.5fixed.data", decimal_point);
+    decimal_point = fann_save_to_fixed(ann, "newDatasetv6.8_fixed.net");
+    fann_save_train_to_fixed(data, "newDatasetv6.8fixed.data", decimal_point);
 
     printf("Cleaning up.\n");
     fann_destroy_train(data);
     fann_destroy(ann);
+
+
+    
+    end = clock();
+    time_taken = double(end - start) * 1000 / double(CLOCKS_PER_SEC); //ms
+    total_time += time_taken;
+    std::cerr <<  time_taken << setprecision(2) << std::fixed << " ms | " << "Trainnig process has completed " << std::endl;
+
+
+    std::cerr <<  time_taken << setprecision(2) << std::fixed << "ms | "<< "All process has done" << std::endl;
+
     
     /*
     // const unsigned int num_input = 308;
@@ -482,7 +533,6 @@ int main (int argc, char** argv)
     // const float desired_error = (const float) 0.01; // break ketika error sudah lebih kecil dari ini
     // const unsigned int max_epochs = 200;//50000; //epoch iterasi
     // const unsigned int epochs_between_reports = 1; //jeda printing 
-
     // struct fann *ann = fann_create_standard(
     //     9,    //num_layers, 
     //     308,  //num_input,
@@ -495,7 +545,6 @@ int main (int argc, char** argv)
     //     19,   // (int) num_neurons_hidden/32,
     //     num_output //8
     // );
-
     // // fann_set_activation_function_hidden(ann, FANN_LINEAR); // set act func all hidden layer
     // // fann_set_activation_function_layer(ann, FANN_LINEAR_PIECE, 1); //hidden layer ke 1 
     // // fann_set_activation_function_layer(ann, FANN_LINEAR_PIECE, 2); //hidden layer ke 2 
@@ -505,8 +554,6 @@ int main (int argc, char** argv)
     // // fann_set_activation_function_layer(ann, FANN_SIGMOID, 6); //hidden layer ke 6
     // // fann_set_activation_function_layer(ann, FANN_SIGMOID, 7); //hidden layer ke 7
     // // fann_set_activation_function_output(ann, FANN_SIGMOID);
-
-
     // // fann_set_train_error_function(ann, FANN_ERRORFUNC_LINEAR); //The default error function is FANN_ERRORFUNC_TANH
     // // fann_set_train_stop_function(ann, FANN_STOPFUNC_MSE); //The default stop function is FANN_STOPFUNC_MSE
     // // fann_set_training_algorithm(ann, FANN_TRAIN_BATCH); // deafult FANN_TRAIN_RPROP
@@ -515,7 +562,6 @@ int main (int argc, char** argv)
     // // fann_reset_MSE(ann);
     
     // fann_set_callback(ann, (fann_callback_type)&callbackTrainning); //callback to save error
-
     // // fann_type* weights;
     // // fann_get_weights(ann, weights );
     // // // for(int i =0; i < sizeof(weights)/sizeof(weights[0]) ; i++)
@@ -523,20 +569,12 @@ int main (int argc, char** argv)
     // // //   std::cout << " ";// weights[i] << " ";
     // // // }
     // // std::cout << sizeof(&weights[0]) << std::endl;
-
     // // print_fann_configuration(ann); //handmade   
-
-
-    // fann_train_on_file(ann, "newDatasetv6.5.data", max_epochs,
+    // fann_train_on_file(ann, "newDatasetv6.8.data", max_epochs,
     //     epochs_between_reports, desired_error);
-
-
-
     // fann_save(ann, "listDataSetv3.1.net");
     // // DONT FORGET NAMING FOR CALLBACK ERROR
-
     // // fann_print_connections(ann);
-
     // // fann_destroy_train(ann);
     // fann_destroy(ann); 
 */

@@ -100,13 +100,55 @@ int FANN_API callbackTrainning(
     unsigned int epochs
 )
 {
-    ofstream MyFileData("newDatasetv6.8_error.txt", ios::app);
+    fann_type *calc_out_tmp;
+    /*** calculate the accuracy ***/
+    int countTrue = 0;
+    for(int i = 0; i < fann_length_train_data(train); i++)
+    {
+        calc_out_tmp = fann_run(ann, train->input[i]);
+        // printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
+        //     data->input[i][0], data->input[i][1], 
+        //             calc_out_tmp[0], calc_out_tmp[1], calc_out_tmp[2], calc_out_tmp[3], calc_out_tmp[4], calc_out_tmp[5], calc_out_tmp[6], calc_out_tmp[7], 
+        //             data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
+        //     fann_abs(calc_out_tmp[0] - data->output[i][0]));
+        int maxIndexOutput = 0, maxIndexInput = 0;
+        float maxValueOutput = 0.0f, maxValueInput = 0.0f;
+        for(int j = 0; j < ann->num_output; j++ )
+        {
+            if(calc_out_tmp[j] > maxValueOutput)
+            {
+              maxIndexOutput = j;
+              maxValueOutput = calc_out_tmp[j];
+            }
+            if(train->output[i][j] > maxValueInput)
+            {
+              maxIndexInput = j;
+              maxValueInput = train->output[i][j];
+            }
+        }
+        if(maxIndexInput == maxIndexOutput) 
+            countTrue++;
+        // std::cout << i << ", " << maxIndexInput << " - " 
+        //           << maxIndexOutput << " " << maxValueOutput*100 << " - " 
+        //           << (
+        //             (maxIndexInput == maxIndexOutput) ? "true" : "false"
+        //           )
+        //           << std::endl;
+
+    }
+    float accuracy = (float)countTrue/(float)fann_length_train_data(train);
+    // std::cout << countTrue << "/" << fann_length_train_data(train) << " - Accuracy : " << accuracy << std::endl;
+    /*** calculate the accuracy ***/
+
+    ofstream MyFileData("newDatasetv6.9_error.txt", ios::app);
     MyFileData << epochs << ", " 
                << fann_get_MSE(ann) << ", " 
+               << accuracy << ","
                << desired_error << ", "
                << std::endl;
     std::cout  << epochs << ", " 
                << fann_get_MSE(ann) << ", " 
+               << accuracy << ","
                << desired_error << ", "
                << std::endl;
     MyFileData.close();
@@ -114,7 +156,7 @@ int FANN_API callbackTrainning(
 
 int main (int argc, char** argv)
 {
-
+//a
     clock_t start, end;
     double time_taken, total_time = 0.0f;
 
@@ -125,15 +167,17 @@ int main (int argc, char** argv)
 
     LoadModels(argv[1], extension, models); // argv[1] = "dataset_washington" 
 
-    ofstream MyFileData("newDatasetv6.8.txt");
+    ofstream MyFileData("newDatasetv6.9.txt");
     int no  = 0;
     std::vector<int> category;
+    std::vector<std::string> categoryName;
     for(auto it : models)
     {
        if(no != it.first.no)
        {
           MyFileData << it.first.category << std::endl;
           category.push_back(it.first.no);
+          categoryName.push_back(it.first.category);
        }
         no = it.first.no;
     }
@@ -294,15 +338,15 @@ int main (int argc, char** argv)
     std::vector<std::vector<float> > VFHValues;
 
     //write file for data trainninng FANN librray format
-    ofstream MyFile("newDatasetv6.8.data");
+    ofstream MyFile("newDatasetv6.9.data");
     MyFile << models.size() << " 308 " << category.size() << std::endl; // coutn of row, count of input node ann, count of output node ann
 
     //write file for data trainninng csv format 
     // Warning i'm using ; seperated symbol standard in my country
-    ofstream MyFileCsv("newDatasetv6.8.csv");
+    ofstream MyFileCsv("newDatasetv6.9.csv");
 
     // saving csv header format
-    MyFileCsv << "label" ; 
+    MyFileCsv << "label" << ";" << "filename"; 
     for(int i =1 ; i <= 308; i++)
     {
         // std::cout << it2 << std::endl;
@@ -339,7 +383,7 @@ int main (int argc, char** argv)
 
         // std::cout << "Computed " << cloudWithNormals->points.size() << " normals." << std::endl;
         
-        // Setup the feature computation
+        // SetupValue the feature computation
 
         // Provide the original point cloud (without normals)
         vfhEstimation.setInputCloud (it.second);
@@ -444,13 +488,13 @@ int main (int argc, char** argv)
 
     printf("Creating network.\n");
     // ann = fann_create_standard(num_layers, num_input, num_neurons_hidden, num_output);
-    // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv6.8
-    ann = fann_create_standard(3, 308, 616, category.size()); // newDatasetv6.8
+    // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // newDatasetv6.9
+    ann = fann_create_standard(3, 308, 616, category.size()); // newDatasetv6.9
     
     // ann = fann_create_standard(5, 308, 616, 308, 64, 8); // ccccccc
 
 
-    data = fann_read_train_from_file("newDatasetv6.8.data");
+    data = fann_read_train_from_file("newDatasetv6.9.data");
 
     // fann_set_activation_steepness_hidden(ann, 0.01); //deafault 0.5 //bbbbbb = 0.01
     // fann_set_activation_steepness_output(ann, 0.01); //deafault 0.5
@@ -491,24 +535,48 @@ int main (int argc, char** argv)
     // printf("Testing network. %f\n", fann_test_data(ann, data));
 
 
-    // for(i = 0; i < fann_length_train_data(data); i++)
-    // {
-    //     calc_out = fann_run(ann, data->input[i]);
-    //     printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
-    //         data->input[i][0], data->input[i][1], 
-    //                 calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
-    //                 data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
-    //         fann_abs(calc_out[0] - data->output[i][0]));
-        
+    int countTrue = 0;
+    for(i = 0; i < fann_length_train_data(data); i++)
+    {
+        calc_out = fann_run(ann, data->input[i]);
+        // printf("test (%f,%f) -> %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f \n, should be %.1f %.1f %.1f %.1f %.1f %.1f %.1f %.1f , difference=%f\n",
+        //     data->input[i][0], data->input[i][1], 
+        //             calc_out[0], calc_out[1], calc_out[2], calc_out[3], calc_out[4], calc_out[5], calc_out[6], calc_out[7], 
+        //             data->output[i][0], data->output[i][1], data->output[i][2], data->output[i][3], data->output[i][4], data->output[i][5], data->output[i][6], data->output[i][7], 
+        //     fann_abs(calc_out[0] - data->output[i][0]));
+        int maxIndexOutput = 0, maxIndexInput = 0;
+        float maxValueOutput = 0.0f, maxValueInput = 0.0f;
+        for(int j = 0; j < ann->num_output; j++ )
+        {
+            if(calc_out[j] > maxValueOutput)
+            {
+              maxIndexOutput = j;
+              maxValueOutput = calc_out[j];
+            }
+            if(data->output[i][j] > maxValueInput)
+            {
+              maxIndexInput = j;
+              maxValueInput = data->output[i][j];
+            }
+        }
+        if(maxIndexInput == maxIndexOutput) 
+            countTrue++;
+        std::cout << i << ", " << categoryName[maxIndexInput] << " - " 
+                  << categoryName[maxIndexOutput] << " " << maxValueOutput*100 << " - " 
+                  << (
+                    (maxIndexInput == maxIndexOutput) ? "true" : "false"
+                  )
+                  << std::endl;
 
-    // }
+    }
+    std::cout << countTrue << "/" << fann_length_train_data(data) << " - Accuracy : " << (float) countTrue/fann_length_train_data(data) << std::endl;
 
     printf("Saving network.\n");
 
-    fann_save(ann, "newDatasetv6.8.net");
+    fann_save(ann, "newDatasetv6.9.net");
 
-    decimal_point = fann_save_to_fixed(ann, "newDatasetv6.8_fixed.net");
-    fann_save_train_to_fixed(data, "newDatasetv6.8fixed.data", decimal_point);
+    decimal_point = fann_save_to_fixed(ann, "newDatasetv6.9_fixed.net");
+    fann_save_train_to_fixed(data, "newDatasetv6.9fixed.data", decimal_point);
 
     printf("Cleaning up.\n");
     fann_destroy_train(data);
@@ -570,7 +638,7 @@ int main (int argc, char** argv)
     // // // }
     // // std::cout << sizeof(&weights[0]) << std::endl;
     // // print_fann_configuration(ann); //handmade   
-    // fann_train_on_file(ann, "newDatasetv6.8.data", max_epochs,
+    // fann_train_on_file(ann, "newDatasetv6.9.data", max_epochs,
     //     epochs_between_reports, desired_error);
     // fann_save(ann, "listDataSetv3.1.net");
     // // DONT FORGET NAMING FOR CALLBACK ERROR

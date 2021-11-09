@@ -9,26 +9,26 @@
 <h1 align="center">3D Object Detection and Recognition Based on RGBD Images</h1>
 
 <p align="center">
-  <img alt="Github top language" src="https://img.shields.io/github/languages/top/malikmal/learning-pointcloud?color=56BEB8">
+  <img alt="Github top language" src="https://img.shields.io/github/languages/top/malikmal/object_recognition_pkg?color=56BEB8">
 
-  <img alt="Github language count" src="https://img.shields.io/github/languages/count/malikmal/learning-pointcloud?color=56BEB8">
+  <img alt="Github language count" src="https://img.shields.io/github/languages/count/malikmal/object_recognition_pkg?color=56BEB8">
 
-  <img alt="Repository size" src="https://img.shields.io/github/repo-size/malikmal/learning-pointcloud?color=56BEB8">
+  <img alt="Repository size" src="https://img.shields.io/github/repo-size/malikmal/object_recognition_pkg?color=56BEB8">
 
-  <img alt="License" src="https://img.shields.io/github/license/malikmal/learning-pointcloud?color=56BEB8">
+  <img alt="License" src="https://img.shields.io/github/license/malikmal/object_recognition_pkg?color=56BEB8">
 
-  <img alt="Github issues" src="https://img.shields.io/github/issues/malikmal/learning-pointcloud?color=56BEB8" />
+  <img alt="Github issues" src="https://img.shields.io/github/issues/malikmal/object_recognition_pkg?color=56BEB8" />
 
-  <img alt="Github forks" src="https://img.shields.io/github/forks/malikmal/learning-pointcloud?color=56BEB8" />
+  <img alt="Github forks" src="https://img.shields.io/github/forks/malikmal/object_recognition_pkg?color=56BEB8" />
 
-  <img alt="Github stars" src="https://img.shields.io/github/stars/malikmal/learning-pointcloud?color=56BEB8" />
+  <img alt="Github stars" src="https://img.shields.io/github/stars/malikmal/object_recognition_pkg?color=56BEB8" />
 </p>
 
 <!-- Status -->
 
-<h4 align="center"> 
+<!-- <h4 align="center"> 
 	🚧  Paper still reviewed...  🚧
-</h4> 
+</h4>  -->
 
 <hr>
 
@@ -47,6 +47,23 @@
 ## :dart: About ##
 
 Package for 3D Object Detection and Recognition Based on RGBD Images in Robot Operating System (ROS) Workspace. This is my final project as student in EEPIS/PENS.
+
+
+## :link: Paper ##
+
+https://ieeexplore.ieee.org/document/9594034
+```
+@INPROCEEDINGS{9594034,
+  author={Birri, Ikmalil and Dewantara, Bima Sena Bayu and Pramadihanto, Dadet},
+  booktitle={2021 International Electronics Symposium (IES)}, 
+  title={3D Object Detection and Recognition based on RGBD Images for Healthcare Robot}, 
+  year={2021},
+  volume={},
+  number={},
+  pages={173-178},
+  doi={10.1109/IES53407.2021.9594034}}
+```
+
 
 ## :sparkles: Features ##
 
@@ -87,7 +104,7 @@ $ cd ../
 $ catkin_make
 
 # Prepare datasets
-$ contains folders of object scenes
+# contains folders of object scenes
 
 # Run training
 $ rosrun object_recognition_pkg main_trainning folder_name
@@ -101,12 +118,14 @@ $ rosrun object_recognition_pkg camera_node
 $ rosrun object_recognition_pkg main_camera
 ```
 
+
 ## :memo: License ##
 
 <!-- This project is under license from MIT. For more details, see the [LICENSE](LICENSE.md) file. -->
 
 
 Made with :heart: by <a href="https://github.com/{{YOUR_GITHUB_USERNAME}}" target="_blank">[Ikmalil Birri](https://www.linkedin.com/in/ikmalil-birri-99b11611a/)</a>
+
 
 &#xa0;
 

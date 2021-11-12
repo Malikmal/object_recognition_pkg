@@ -64,6 +64,8 @@ https://ieeexplore.ieee.org/document/9594034
   doi={10.1109/IES53407.2021.9594034}}
 ```
 
+## 📹: Publication ##
+[![Watch the video](https://img.youtube.com/vi/T49SgeLJDdc/maxresdefault.jpg)](https://www.youtube.com/watch?v=T49SgeLJDdc)
 
 ## :sparkles: Features ##
 
